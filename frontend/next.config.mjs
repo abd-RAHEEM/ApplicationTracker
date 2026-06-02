@@ -3,6 +3,19 @@ const nextConfig = {
   // Output standalone for Docker deployments
   output: "standalone",
 
+  // Skip type checking on production builds to prevent OOM errors on Render
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  // Skip linting on production builds to prevent OOM errors on Render
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  // Disable webpack build worker to save memory on 512MB RAM instances
+  experimental: {
+    webpackBuildWorker: false,
+  },
+
   // Strict mode for catching React issues early
   reactStrictMode: true,
 
