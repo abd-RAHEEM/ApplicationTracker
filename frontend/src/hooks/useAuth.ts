@@ -34,7 +34,7 @@ export function useAuth() {
     queryFn: () => apiGet<UserRead>("/users/me"),
     enabled: !user,                      // Only fetch if no cached user
     retry: false,
-    onSuccess: (data) => setUser(data),
+    onSuccess: (data: UserRead) => setUser(data),
     onError: () => clearAuth(),
   } as any);
 
