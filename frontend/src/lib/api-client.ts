@@ -14,8 +14,10 @@ import axios, {
   InternalAxiosRequestConfig,
 } from "axios";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
+const rawUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
+const API_BASE_URL = rawUrl.endsWith("/v1") || rawUrl.endsWith("/v1/")
+  ? rawUrl
+  : `${rawUrl.replace(/\/$/, "")}/v1`;
 
 // ── Axios Instance ─────────────────────────────────────────────────────────────
 export const apiClient: AxiosInstance = axios.create({
