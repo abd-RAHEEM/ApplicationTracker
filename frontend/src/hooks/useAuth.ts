@@ -71,9 +71,11 @@ export function useAuth() {
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          gmail_connected: loginData.user.gmail_connected,
+          gmail_connected: false,
           gmail_email: null,
-          initial_import_done: loginData.user.initial_import_done,
+          initial_import_done: false,
+          is_email_verified: true,
+          is_onboarding_completed: false,
         });
       }
 
