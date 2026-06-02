@@ -13,6 +13,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Set Node memory limit to prevent OOM kills on 512MB instances
+ENV NODE_OPTIONS="--max-old-space-size=400"
 RUN npm run build
 
 # Production image

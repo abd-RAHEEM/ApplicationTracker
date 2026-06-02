@@ -3,6 +3,9 @@ const nextConfig = {
   // Output standalone for Docker deployments
   output: "standalone",
 
+  // Disable source maps in production to save memory during build
+  productionBrowserSourceMaps: false,
+
   // Strict mode for catching React issues early
   reactStrictMode: true,
 
