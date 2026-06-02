@@ -1,5 +1,6 @@
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { QueryClientProviderWrapper } from "@/components/providers/query-provider";
 import "@/app/globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -23,7 +24,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <QueryClientProviderWrapper>
+            {children}
+          </QueryClientProviderWrapper>
         </ThemeProvider>
       </body>
     </html>
