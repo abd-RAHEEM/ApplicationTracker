@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { QueryClientProviderWrapper } from "@/components/providers/query-provider";
+import { Toaster } from "sonner";
 import "@/app/globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -26,6 +27,7 @@ export default function RootLayout({
         >
           <QueryClientProviderWrapper>
             {children}
+            <Toaster richColors position="top-center" />
           </QueryClientProviderWrapper>
         </ThemeProvider>
       </body>
