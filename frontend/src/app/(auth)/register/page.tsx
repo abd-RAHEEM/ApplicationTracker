@@ -47,6 +47,7 @@ export default function RegisterPage() {
       full_name: data.full_name,
       username: data.username,
       password: data.password,
+      confirm_password: data.confirm_password,
     });
   };
 
