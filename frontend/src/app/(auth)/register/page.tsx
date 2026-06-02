@@ -89,8 +89,10 @@ export default function RegisterPage() {
               className={`transition-colors ${errors.username ? "border-red-500 focus-visible:ring-red-500" : ""}`}
               {...register("username")}
             />
-            {errors.username && (
+            {errors.username ? (
               <p className="text-sm text-red-500 mt-1">{errors.username.message}</p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">Username cannot be changed later.</p>
             )}
           </div>
           <div className="space-y-2">

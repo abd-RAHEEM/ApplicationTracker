@@ -85,7 +85,16 @@ export function useAuth() {
       } else if (!loginData.user.initial_import_done) {
         router.push("/onboarding/import-config");
       } else {
-        router.push("/dashboard");
+        // Check for 'from' parameter in the URL
+        let redirectPath = "/dashboard";
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          const from = params.get("from");
+          if (from && from.startsWith("/")) {
+            redirectPath = from;
+          }
+        }
+        router.push(redirectPath);
       }
 
       toast.success(`Welcome back, ${loginData.user.username}!`);
