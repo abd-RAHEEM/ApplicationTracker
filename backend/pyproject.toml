@@ -7,7 +7,7 @@ name = "jobtracker-backend"
 version = "0.1.0"
 description = "AI-Powered Job Application Tracking SaaS — Backend API"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<4.0"
 license = { text = "MIT" }
 
 dependencies = [
