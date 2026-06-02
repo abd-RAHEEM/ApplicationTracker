@@ -5,7 +5,7 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --no-audit
 
 # Build the source code
 FROM base AS builder
@@ -13,8 +13,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Set Node memory limit to prevent OOM kills on 512MB instances
-ENV NODE_OPTIONS="--max-old-space-size=400"
 RUN npm run build
 
 # Production image
