@@ -45,7 +45,10 @@ class Settings(BaseSettings):
     # ── Server ─────────────────────────────────────────────────────────────────
     host: str = "0.0.0.0"
     port: int = Field(default=8000, ge=1, le=65535)
-    allowed_origins: list[str] = ["http://localhost:3000"]
+    allowed_origins_raw: str | list[str] = Field(
+        default=["http://localhost:3000"],
+        validation_alias="allowed_origins",
+    )
 
     # ── Database ───────────────────────────────────────────────────────────────
     database_url: str = Field(
@@ -134,13 +137,20 @@ class Settings(BaseSettings):
         return self.is_production
 
     # ── Validators ─────────────────────────────────────────────────────────────
-    @field_validator("allowed_origins", mode="before")
+    @field_validator("allowed_origins_raw", mode="before")
     @classmethod
     def parse_allowed_origins(cls, v: str | list[str]) -> list[str]:
         """Parse comma-separated ALLOWED_ORIGINS env var into a list."""
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """Get the parsed list of allowed CORS origins."""
+        if isinstance(self.allowed_origins_raw, str):
+            return [origin.strip() for origin in self.allowed_origins_raw.split(",") if origin.strip()]
+        return self.allowed_origins_raw
 
 
 @lru_cache
