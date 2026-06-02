@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import apiClient from '@/lib/api-client';
+import { apiClient, apiPost } from "@/lib/api-client";
 import { useAuthStore } from '@/store/auth-store';
 import { OAuthUrlResponse, InitialImportConfigRequest } from '@/types/gmail';
 import { UserRead } from '@/types/auth';
