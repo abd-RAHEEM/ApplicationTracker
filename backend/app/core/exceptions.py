@@ -224,10 +224,15 @@ def register_exception_handlers(app: FastAPI) -> None:
             path=request.url.path,
             exc_type=type(exc).__name__,
         )
+        import traceback
         response = _error_response(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             "INTERNAL_ERROR",
-            "An unexpected error occurred",
+            f"An unexpected error occurred: {str(exc)}",
+            details={
+                "exception_type": type(exc).__name__,
+                "traceback": traceback.format_exc()
+            }
         )
         # IMPORTANT: @app.exception_handler(Exception) is used by Starlette's
         # ServerErrorMiddleware, which is the OUTERMOST layer — above CORSMiddleware.
