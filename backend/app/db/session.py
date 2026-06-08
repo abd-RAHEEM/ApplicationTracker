@@ -12,11 +12,17 @@ Rationale for async:
   during every DB query, destroying concurrency. asyncpg is the fastest
   async PostgreSQL driver for Python.
 
-Connection pool settings:
-  - pool_size=10: base number of persistent connections.
-  - max_overflow=20: additional connections allowed under peak load.
-  - pool_pre_ping=True: validates connections before checkout (handles
-    Supabase idle connection timeouts gracefully).
+Connection pool — NullPool for pgbouncer:
+  Supabase uses pgbouncer in transaction mode as a connection pooler.
+  SQLAlchemy's built-in QueuePool keeps long-lived persistent connections
+  per process, which conflicts with pgbouncer's transaction-mode assumptions:
+    - pgbouncer reuses connections across clients between transactions
+    - QueuePool holds them open, exhausting the pgbouncer connection limit
+    - asyncpg's prepared statement cache creates DuplicatePreparedStatement errors
+
+  Fix: use NullPool so SQLAlchemy creates/destroys connections per-request
+  and pgbouncer handles the actual pooling transparently.
+  Also disable asyncpg's prepared statement cache (statement_cache_size=0).
 """
 from __future__ import annotations
 
@@ -24,6 +30,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import structlog
+from sqlalchemy.pool import NullPool
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncEngine,
@@ -37,17 +44,17 @@ from app.config import settings
 logger = structlog.get_logger(__name__)
 
 # ── Engine ─────────────────────────────────────────────────────────────────────
+# NullPool: do NOT pool connections on the SQLAlchemy side.
+# pgbouncer (Supabase) is the pooler — SQLAlchemy pooling on top of it causes:
+#   - DuplicatePreparedStatementError (asyncpg prepared statement cache conflict)
+#   - Connection exhaustion (SQLAlchemy holds connections pgbouncer expects back)
+# With NullPool + statement_cache_size=0, each request gets a fresh connection
+# from pgbouncer and returns it immediately after the transaction completes.
 engine: AsyncEngine = create_async_engine(
     settings.database_url,
     echo=settings.debug,           # Log SQL statements in debug mode
-    pool_pre_ping=True,            # Validate connection before use
-    pool_size=10,                  # Persistent connections
-    max_overflow=20,               # Burst capacity
-    pool_recycle=1800,             # Recycle connections every 30 minutes
-    # pgbouncer (transaction mode) does not support prepared statements.
-    # Setting statement_cache_size=0 disables asyncpg's prepared statement cache.
-    # See: https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#prepared-statement-cache
-    connect_args={"statement_cache_size": 0},
+    poolclass=NullPool,            # Let pgbouncer handle pooling (Supabase standard)
+    connect_args={"statement_cache_size": 0},  # Disable asyncpg prepared stmt cache
 )
 
 # ── Session Factory ────────────────────────────────────────────────────────────

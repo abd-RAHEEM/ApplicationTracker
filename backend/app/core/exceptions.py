@@ -224,8 +224,20 @@ def register_exception_handlers(app: FastAPI) -> None:
             path=request.url.path,
             exc_type=type(exc).__name__,
         )
-        return _error_response(
+        response = _error_response(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             "INTERNAL_ERROR",
             "An unexpected error occurred",
         )
+        # IMPORTANT: @app.exception_handler(Exception) is used by Starlette's
+        # ServerErrorMiddleware, which is the OUTERMOST layer — above CORSMiddleware.
+        # This means the response bypasses CORSMiddleware and never gets CORS headers.
+        # Without these headers, the browser blocks the response with a CORS policy error,
+        # hiding the real 500 error from the frontend. Add headers manually here.
+        from app.config import settings as _settings
+        origin = request.headers.get("origin", "")
+        if origin and origin in _settings.allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Vary"] = "Origin"
+        return response
