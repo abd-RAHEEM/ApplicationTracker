@@ -22,10 +22,10 @@ export function middleware(request: NextRequest): NextResponse {
   const accessToken = request.cookies.get("access_token");
   const isAuthenticated = Boolean(accessToken?.value);
 
-  // Authenticated user trying to access auth pages → redirect to dashboard
-  if (isAuthenticated && AUTH_ROUTES.some((r) => pathname.startsWith(r))) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
+  // NOTE: We do NOT redirect authenticated users away from auth pages here.
+  // Auth cookies are set on the backend domain (different origin), so the
+  // Next.js middleware running on the frontend domain cannot reliably see them.
+  // Client-side logic in useAuth handles post-login navigation instead.
 
   // Unauthenticated user trying to access protected pages → redirect to login
   if (!isAuthenticated && PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {

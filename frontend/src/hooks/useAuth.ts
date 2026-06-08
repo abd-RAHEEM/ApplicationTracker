@@ -86,13 +86,16 @@ export function useAuth() {
       }
 
       // Route based on onboarding state
+      // Use window.location.href (not router.push) to force a full page reload.
+      // Auth cookies are set by the backend (different domain), so a SPA
+      // client-side navigation may not re-evaluate cookie state correctly.
+      let redirectPath: string;
       if (!loginData.user.gmail_connected) {
-        router.push("/onboarding/connect-gmail");
+        redirectPath = "/onboarding/connect-gmail";
       } else if (!loginData.user.initial_import_done) {
-        router.push("/onboarding/import-config");
+        redirectPath = "/onboarding/import-config";
       } else {
-        // Check for 'from' parameter in the URL
-        let redirectPath = "/dashboard";
+        redirectPath = "/dashboard";
         if (typeof window !== "undefined") {
           const params = new URLSearchParams(window.location.search);
           const from = params.get("from");
@@ -100,10 +103,14 @@ export function useAuth() {
             redirectPath = from;
           }
         }
-        router.push(redirectPath);
       }
 
       toast.success(`Welcome back, ${loginData.user.username}!`);
+
+      // Small delay so the toast is visible before navigation
+      setTimeout(() => {
+        window.location.href = redirectPath;
+      }, 500);
     },
     onError: (error: unknown) => {
       const apiError = getApiError(error);
