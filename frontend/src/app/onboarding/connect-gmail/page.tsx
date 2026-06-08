@@ -16,7 +16,7 @@ export default function ConnectGmailPage() {
 
   useEffect(() => {
     // If user already connected Gmail, move them to the next step
-    if (user?.is_email_verified) {
+    if (user?.gmail_connected) {
       if (user?.is_onboarding_completed) {
         router.push("/dashboard");
       } else {

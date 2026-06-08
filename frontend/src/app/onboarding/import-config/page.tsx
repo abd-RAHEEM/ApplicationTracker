@@ -22,7 +22,7 @@ export default function ImportConfigPage() {
   useEffect(() => {
     // Auth guards
     if (!user) return;
-    if (!user.is_email_verified) {
+    if (!user.gmail_connected) {
       router.push("/onboarding/connect-gmail");
     } else if (user.is_onboarding_completed) {
       router.push("/dashboard");
