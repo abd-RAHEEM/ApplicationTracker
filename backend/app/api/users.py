@@ -38,7 +38,7 @@ async def _build_user_read(
     session: AsyncSession,
 ) -> UserRead:
     """Build UserRead schema with Gmail connection status."""
-    gmail = await gmail_repository.get_active_connection(session, user.id)
+    gmail = await gmail_repository.get_connection(session, user.id)
     return UserRead(
         id=user.id,
         username=user.username,
