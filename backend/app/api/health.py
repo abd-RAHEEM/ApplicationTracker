@@ -25,6 +25,73 @@ async def database_health(session: AsyncSession = Depends(get_async_session)) ->
         return {"status": "error", "database": str(e)}
 
 
+@router.get("/db-debug", status_code=status.HTTP_200_OK)
+async def database_debug(session: AsyncSession = Depends(get_async_session)) -> Dict[str, Any]:
+    """Temporary debugging endpoint to inspect database tables and run migrations programmatically."""
+    import os
+    import traceback
+    
+    # 1. Query existing tables
+    tables = []
+    tables_error = None
+    try:
+        result = await session.execute(text(
+            "SELECT tablename FROM pg_catalog.pg_tables "
+            "WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'"
+        ))
+        tables = [row[0] for row in result.fetchall()]
+    except Exception as e:
+        tables_error = str(e)
+
+    # 2. Test sync connection via psycopg (for Alembic env.py)
+    import psycopg
+    db_url_sync = os.environ.get("DATABASE_URL_SYNC", "Not Set")
+    sync_conn_status = "unknown"
+    sync_error = None
+    if db_url_sync != "Not Set":
+        try:
+            conn_str = db_url_sync.replace("postgresql+psycopg://", "postgresql://")
+            conn = psycopg.connect(conn_str)
+            conn.close()
+            sync_conn_status = "connected"
+        except Exception as e:
+            sync_conn_status = "failed"
+            sync_error = f"{type(e).__name__}: {str(e)}"
+
+    # 3. Attempt programmatic Alembic migration
+    from alembic.config import Config
+    from alembic import command
+    alembic_status = "unknown"
+    alembic_error = None
+    
+    try:
+        # Resolve path to alembic.ini
+        ini_path = "alembic.ini"
+        if not os.path.exists(ini_path):
+            ini_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "alembic.ini")
+        
+        alembic_cfg = Config(ini_path)
+        # Override with env var sync URL explicitly to verify setup
+        if db_url_sync != "Not Set":
+            alembic_cfg.set_main_option("sqlalchemy.url", db_url_sync)
+            
+        command.upgrade(alembic_cfg, "head")
+        alembic_status = "success"
+    except Exception as e:
+        alembic_status = "failed"
+        alembic_error = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+
+    return {
+        "tables": tables,
+        "tables_error": tables_error,
+        "database_url_sync_set": db_url_sync != "Not Set",
+        "sync_conn_status": sync_conn_status,
+        "sync_error": sync_error,
+        "alembic_status": alembic_status,
+        "alembic_error": alembic_error,
+    }
+
+
 @router.get("/redis", status_code=status.HTTP_200_OK)
 async def redis_health() -> Dict[str, Any]:
     """Check Redis connectivity."""

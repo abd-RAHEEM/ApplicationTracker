@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Always run from the directory containing this script.
 # This ensures alembic.ini, alembic/ migrations folder, and app/ are all
