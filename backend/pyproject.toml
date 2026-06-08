@@ -29,7 +29,7 @@ dependencies = [
 
     # ── Auth & Security ───────────────────────────────────────────────────────
     "python-jose[cryptography]>=3.3.0", # JWT encoding / decoding
-    "passlib[bcrypt]>=1.7.4",           # bcrypt password hashing
+    "bcrypt>=4.0.0",                    # bcrypt password hashing (passlib dropped: crashes with bcrypt>=4.0)
     "cryptography>=42.0.0",             # AES-256-GCM for Gmail token encryption
 
     # ── Background Tasks ──────────────────────────────────────────────────────

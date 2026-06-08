@@ -25,31 +25,34 @@ from base64 import b64decode, b64encode
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+import bcrypt
 import structlog
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.config import settings
 
 logger = structlog.get_logger(__name__)
 
 # ── Password Hashing ───────────────────────────────────────────────────────────
-_pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__rounds=12,
-)
+# We use the `bcrypt` library directly (not passlib) because passlib is
+# effectively unmaintained and has a known crash with bcrypt>=4.0 where its
+# internal self-test tries to verify a >72-byte secret and raises ValueError.
+_BCRYPT_ROUNDS: int = 12
 
 
 def hash_password(password: str) -> str:
     """Return the bcrypt hash of a plaintext password."""
-    return _pwd_context.hash(password)
+    return bcrypt.hashpw(
+        password.encode("utf-8"), bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)
+    ).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plaintext password against a stored bcrypt hash."""
-    return _pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"), hashed_password.encode("utf-8")
+    )
 
 
 # ── JWT ────────────────────────────────────────────────────────────────────────
@@ -114,17 +117,20 @@ def create_refresh_token() -> str:
 
 def hash_refresh_token(token: str) -> str:
     """
-    Return the bcrypt hash of a refresh token for database storage.
+    Return the SHA-256 hash of a refresh token for database storage.
 
-    bcrypt is used (vs SHA-256) to add a computational cost to
-    verification, protecting against DB dumps combined with brute-force.
+    SHA-256 is used instead of bcrypt because refresh tokens are generated
+    by secrets.token_urlsafe(64), producing ~86-character strings that exceed
+    bcrypt's 72-byte input limit. Since refresh tokens are already high-entropy
+    (512 bits), SHA-256's pre-image resistance is sufficient — an attacker with
+    the DB cannot feasibly reverse the hash to obtain a valid token.
     """
-    return _pwd_context.hash(token)
+    return _sha256(token)
 
 
 def verify_refresh_token(token: str, hashed: str) -> bool:
-    """Verify a raw refresh token against its stored bcrypt hash."""
-    return _pwd_context.verify(token, hashed)
+    """Verify a raw refresh token against its stored SHA-256 hash."""
+    return secrets.compare_digest(_sha256(token), hashed)
 
 
 # ── Password Reset Tokens ──────────────────────────────────────────────────────
