@@ -76,9 +76,15 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         processPendingRequests(refreshError as Error);
-        // Redirect to login on refresh failure
+        // Only redirect to login if we are NOT already on an auth page.
+        // Redirecting unconditionally causes an infinite reload loop:
+        // auth page mounts → useQuery(["me"]) → 401 → refresh → 401 → redirect to /login → repeat.
         if (typeof window !== "undefined") {
-          window.location.href = "/login";
+          const AUTH_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
+          const isOnAuthPage = AUTH_PATHS.some((p) => window.location.pathname.startsWith(p));
+          if (!isOnAuthPage) {
+            window.location.href = "/login";
+          }
         }
         return Promise.reject(refreshError);
       } finally {

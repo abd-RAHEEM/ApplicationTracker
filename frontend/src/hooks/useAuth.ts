@@ -9,7 +9,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { apiClient, apiGet, getApiError } from "@/lib/api-client";
 import { useAuthStore } from "@/store/auth-store";
@@ -26,13 +26,19 @@ import type {
 export function useAuth() {
   const { user, isAuthenticated, isLoading, setUser, clearAuth } = useAuthStore();
   const router = useRouter();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
+
+  // Don't fetch the current user on auth pages — they have no session cookies.
+  // Doing so triggers 401 → refresh → 401 → redirect to /login → infinite loop.
+  const AUTH_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
+  const isOnAuthPage = AUTH_PATHS.some((p) => pathname?.startsWith(p));
 
   // ── Hydrate user on mount ────────────────────────────────────────────────────
   const { isLoading: isFetchingMe } = useQuery({
     queryKey: ["me"],
     queryFn: () => apiGet<UserRead>("/users/me"),
-    enabled: !user,                      // Only fetch if no cached user
+    enabled: !user && !isOnAuthPage,          // Skip on auth pages — no session exists
     retry: false,
     onSuccess: (data: UserRead) => setUser(data),
     onError: () => clearAuth(),
