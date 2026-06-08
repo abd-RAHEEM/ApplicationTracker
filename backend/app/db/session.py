@@ -44,6 +44,10 @@ engine: AsyncEngine = create_async_engine(
     pool_size=10,                  # Persistent connections
     max_overflow=20,               # Burst capacity
     pool_recycle=1800,             # Recycle connections every 30 minutes
+    # pgbouncer (transaction mode) does not support prepared statements.
+    # Setting statement_cache_size=0 disables asyncpg's prepared statement cache.
+    # See: https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#prepared-statement-cache
+    connect_args={"statement_cache_size": 0},
 )
 
 # ── Session Factory ────────────────────────────────────────────────────────────

@@ -51,11 +51,17 @@ def _set_auth_cookies(
     access_token: str,
     refresh_token: str,
 ) -> None:
-    """Set HttpOnly, Secure, SameSite=Strict cookies for both tokens."""
+    """Set HttpOnly, Secure, SameSite=None cookies for both tokens.
+
+    SameSite=None is required because the frontend and backend are served from
+    different origins (cross-site). SameSite=Strict would silently block cookies
+    on all cross-origin requests. SameSite=None requires Secure=True (HTTPS),
+    which is enforced by settings.cookie_secure in production.
+    """
     cookie_kwargs = {
         "httponly": True,
-        "secure": settings.cookie_secure,
-        "samesite": "strict",
+        "secure": settings.cookie_secure,  # Must be True in production (HTTPS required for SameSite=None)
+        "samesite": "none",                # Cross-origin: frontend and backend on different domains
         "path": "/",
     }
     response.set_cookie(
