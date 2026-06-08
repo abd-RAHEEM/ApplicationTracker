@@ -105,6 +105,12 @@ export function useAuth() {
         }
       }
 
+      // Set a lightweight cookie on the frontend domain so Next.js middleware
+      // can detect authenticated state (backend's HttpOnly cookies are invisible
+      // to middleware since they're tied to the backend domain).
+      // 30 days = 2592000 seconds, matching refresh token lifetime.
+      document.cookie = "session_active=1; path=/; max-age=2592000; SameSite=Lax; Secure";
+
       toast.success(`Welcome back, ${loginData.user.username}!`);
 
       // Small delay so the toast is visible before navigation
@@ -124,6 +130,8 @@ export function useAuth() {
     onSuccess: () => {
       clearAuth();
       queryClient.clear();
+      // Clear the frontend session indicator cookie
+      document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax; Secure";
       router.push("/login");
       toast.success("Logged out successfully");
     },
@@ -131,6 +139,7 @@ export function useAuth() {
       // Force logout even if backend call fails
       clearAuth();
       queryClient.clear();
+      document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax; Secure";
       router.push("/login");
     },
   });
