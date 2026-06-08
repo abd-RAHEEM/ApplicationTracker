@@ -58,6 +58,26 @@ async def database_debug(session: AsyncSession = Depends(get_async_session)) -> 
             sync_conn_status = "failed"
             sync_error = f"{type(e).__name__}: {str(e)}"
 
+    # File system check to debug paths on Render
+    fs_debug = {}
+    try:
+        import os
+        fs_debug["cwd"] = os.getcwd()
+        fs_debug["cwd_list"] = os.listdir(os.getcwd())
+        fs_debug["file_path"] = __file__
+        fs_debug["file_dir_list"] = os.listdir(os.path.dirname(__file__))
+        
+        parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        fs_debug["parent_dir"] = parent_dir
+        if os.path.exists(parent_dir):
+            fs_debug["parent_dir_list"] = os.listdir(parent_dir)
+            fs_debug["alembic_ini_exists"] = os.path.exists(os.path.join(parent_dir, "alembic.ini"))
+            fs_debug["alembic_dir_exists"] = os.path.exists(os.path.join(parent_dir, "alembic"))
+            if fs_debug["alembic_dir_exists"]:
+                fs_debug["alembic_dir_list"] = os.listdir(os.path.join(parent_dir, "alembic"))
+    except Exception as e:
+        fs_debug["error"] = str(e)
+
     # 3. Attempt programmatic Alembic migration
     from alembic.config import Config
     from alembic import command
@@ -91,6 +111,7 @@ async def database_debug(session: AsyncSession = Depends(get_async_session)) -> 
         "database_url_sync_set": db_url_sync != "Not Set",
         "sync_conn_status": sync_conn_status,
         "sync_error": sync_error,
+        "fs_debug": fs_debug,
         "alembic_status": alembic_status,
         "alembic_error": alembic_error,
     }
