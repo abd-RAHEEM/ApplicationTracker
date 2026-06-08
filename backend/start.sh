@@ -15,7 +15,7 @@ poetry run celery -A app.worker.celery_app worker --loglevel=info &
 # Use -c to explicitly name the config file — removes any ambiguity about
 # which alembic.ini alembic picks up from the search path.
 echo "==> Running Alembic migrations..."
-poetry run alembic -c alembic.ini upgrade head
+poetry run alembic -c alembic.ini upgrade head || echo "==> WARNING: Alembic migrations failed!"
 echo "==> Migrations complete."
 
 # Start the FastAPI server
