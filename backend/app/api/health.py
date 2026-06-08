@@ -71,6 +71,10 @@ async def database_debug(session: AsyncSession = Depends(get_async_session)) -> 
             ini_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "alembic.ini")
         
         alembic_cfg = Config(ini_path)
+        # Resolve script_location to absolute path
+        alembic_dir = os.path.join(os.path.dirname(ini_path), "alembic")
+        alembic_cfg.set_main_option("script_location", alembic_dir)
+        
         # Override with env var sync URL explicitly to verify setup
         if db_url_sync != "Not Set":
             alembic_cfg.set_main_option("sqlalchemy.url", db_url_sync)
