@@ -51,7 +51,11 @@ export function useAuth() {
     retry: false,
     staleTime: 30 * 1000,             // Re-fetch at most every 30s (not every render)
     onSuccess: (data: UserRead) => setUser(data),
-    onError: () => clearAuth(),
+    onError: () => {
+      document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax";
+      document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax; Secure";
+      clearAuth();
+    },
   } as any);
 
   // ── Register ─────────────────────────────────────────────────────────────────

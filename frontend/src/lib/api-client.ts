@@ -83,6 +83,9 @@ apiClient.interceptors.response.use(
           const AUTH_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
           const isOnAuthPage = AUTH_PATHS.some((p) => window.location.pathname.startsWith(p));
           if (!isOnAuthPage) {
+            // Clear the session_active cookie so Next.js middleware doesn't redirect us back to /dashboard
+            document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax";
+            document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax; Secure";
             window.location.href = "/login";
           }
         }
