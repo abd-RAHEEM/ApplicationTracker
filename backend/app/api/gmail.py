@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import structlog
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -40,34 +41,54 @@ async def get_auth_url(
 
 @router.get(
     "/callback",
-    status_code=status.HTTP_200_OK,
-    summary="Google OAuth Callback",
+    summary="Google OAuth Callback — redirects back to frontend",
 )
 async def oauth_callback(
     code: str = Query(..., description="Authorization code from Google"),
     state: str = Query(..., description="CSRF state token"),
+    error: str | None = Query(None, description="Error from Google (user denied)"),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
-) -> dict[str, str]:
+) -> RedirectResponse:
     """
-    Handle the redirect from Google.
-    
-    1. Validates the state token.
-    2. Exchanges the code for tokens.
-    3. Fetches the verified email.
-    4. Upserts the Gmail connection.
-    5. Marks user's email as verified.
-    
-    NOTE: In a real app, this might redirect to the frontend rather than returning JSON,
-    but returning JSON allows the frontend to pop up a window or handle the flow via API.
+    Handle the redirect from Google after the user grants/denies permission.
+
+    On success  → redirects browser to {FRONTEND_URL}/onboarding/import-config
+    On failure  → redirects browser to {FRONTEND_URL}/onboarding/connect-gmail?error=...
+
+    The browser sends auth cookies to this backend endpoint (same domain as where
+    cookies were set), so get_current_user works here. After callback, we redirect
+    the browser to the frontend with a success/error signal in the query string.
     """
-    await gmail_oauth_service.handle_oauth_callback(
-        session=session,
-        user_id=user.id,
-        code=code,
-        state=state,
+    frontend_url = settings.frontend_url.rstrip("/")
+
+    # Handle user-denied or Google error
+    if error:
+        logger.warning("gmail_oauth_denied_by_user", error=error)
+        return RedirectResponse(
+            url=f"{frontend_url}/onboarding/connect-gmail?error=access_denied",
+            status_code=302,
+        )
+
+    try:
+        await gmail_oauth_service.handle_oauth_callback(
+            session=session,
+            user_id=user.id,
+            code=code,
+            state=state,
+        )
+    except Exception as exc:
+        logger.error("gmail_oauth_callback_failed", error=str(exc))
+        return RedirectResponse(
+            url=f"{frontend_url}/onboarding/connect-gmail?error=oauth_failed",
+            status_code=302,
+        )
+
+    # Success — redirect to next onboarding step
+    return RedirectResponse(
+        url=f"{frontend_url}/onboarding/import-config?gmail=connected",
+        status_code=302,
     )
-    return {"status": "success", "message": "Gmail connected successfully."}
 
 
 @router.post(

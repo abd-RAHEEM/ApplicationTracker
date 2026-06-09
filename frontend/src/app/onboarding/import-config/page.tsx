@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import { subMonths, subYears, startOfDay } from "date-fns";
+
 
 type RangeOption = "1_month" | "6_months" | "1_year" | "all";
 
@@ -30,22 +30,29 @@ export default function ImportConfigPage() {
   }, [user, router]);
 
   const handleComplete = async () => {
-    const today = startOfDay(new Date());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     let importFromDate: Date;
 
     switch (selectedRange) {
       case "1_month":
-        importFromDate = subMonths(today, 1);
+        importFromDate = new Date(today);
+        importFromDate.setMonth(importFromDate.getMonth() - 1);
         break;
       case "6_months":
-        importFromDate = subMonths(today, 6);
+        importFromDate = new Date(today);
+        importFromDate.setMonth(importFromDate.getMonth() - 6);
         break;
       case "1_year":
-        importFromDate = subYears(today, 1);
+        importFromDate = new Date(today);
+        importFromDate.setFullYear(importFromDate.getFullYear() - 1);
         break;
       case "all":
         importFromDate = new Date("2004-04-01"); // Approx Gmail launch date
         break;
+      default:
+        importFromDate = new Date(today);
+        importFromDate.setMonth(importFromDate.getMonth() - 6);
     }
 
     try {
@@ -55,6 +62,7 @@ export default function ImportConfigPage() {
       // Error is handled in the hook
     }
   };
+
 
   const OptionCard = ({ id, title, desc, icon: Icon }: { id: RangeOption, title: string, desc: string, icon: any }) => (
     <div 

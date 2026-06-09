@@ -102,7 +102,7 @@ export async function apiGet<T>(url: string, config?: AxiosRequestConfig): Promi
   return response.data.data;
 }
 
-export async function apiPost<T>(
+export async function apiPost<T = unknown>(
   url: string,
   data?: unknown,
   config?: AxiosRequestConfig
@@ -110,6 +110,8 @@ export async function apiPost<T>(
   const response = await apiClient.post<{ data: T }>(url, data, config);
   return response.data.data;
 }
+
+
 
 export async function apiPatch<T>(
   url: string,

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { apiClient, apiPost } from "@/lib/api-client";
+import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from '@/store/auth-store';
-import { OAuthUrlResponse, InitialImportConfigRequest } from '@/types/gmail';
+import { InitialImportConfigRequest } from '@/types/gmail';
 import { UserRead } from '@/types/auth';
 
 export const useGmail = () => {
@@ -13,13 +13,17 @@ export const useGmail = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const { data } = await apiClient.get<OAuthUrlResponse>('/v1/gmail/auth-url');
+      // Note: apiClient already has baseURL set to /v1, so just use /gmail/auth-url
+      const { data } = await apiClient.get<{ auth_url: string }>('/gmail/auth-url');
       // Redirect user to Google OAuth consent screen
       window.location.href = data.auth_url;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to get authorization URL');
-    } finally {
-      setIsLoading(false);
+      const message =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        'Failed to get authorization URL';
+      setError(message);
+      setIsLoading(false); // Reset loading on error (success keeps it loading during redirect)
     }
   };
 
@@ -31,13 +35,17 @@ export const useGmail = () => {
         import_range: importRange,
         import_from: importFrom 
       };
-      await apiClient.post('/v1/gmail/onboarding/complete', payload);
+      await apiClient.post('/gmail/onboarding/complete', payload);
       
-      // Update local user state so they pass the onboarding gate
-      const { data: user } = await apiClient.get<UserRead>('/v1/users/me');
-      setUser(user);
+      // Refresh user state to reflect completed onboarding
+      const { data: userWrapper } = await apiClient.get<{ data: UserRead }>('/users/me');
+      setUser(userWrapper.data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to complete onboarding configuration');
+      const message =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        'Failed to complete onboarding configuration';
+      setError(message);
       throw err; // Re-throw so the component can stop progression
     } finally {
       setIsLoading(false);

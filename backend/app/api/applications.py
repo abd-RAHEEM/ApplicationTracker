@@ -275,3 +275,49 @@ async def list_bin(
         }
         for app, purge_after in rows
     ]
+
+
+@router.delete(
+    "/bin/{app_id}/purge",
+    status_code=status.HTTP_200_OK,
+    summary="Permanently purge application from bin",
+)
+async def purge_application(
+    app_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Permanently deletes an application and all its associated data from the database.
+    This action cannot be undone.
+    """
+    from sqlalchemy import delete as sa_delete
+
+    result = await session.execute(
+        select(Application).where(
+            Application.id == app_id,
+            Application.user_id == user.id,
+            Application.is_deleted == True  # noqa: E712
+        )
+    )
+    app = result.scalars().first()
+
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found in bin")
+
+    # Remove the bin record
+    await session.execute(
+        sa_delete(DeletedApplication).where(DeletedApplication.application_id == app_id)
+    )
+    # Remove status history
+    from app.models.status_history import ApplicationStatusHistory
+    await session.execute(
+        sa_delete(ApplicationStatusHistory).where(
+            ApplicationStatusHistory.application_id == app_id
+        )
+    )
+    # Remove the application itself
+    await session.delete(app)
+    await session.commit()
+
+    return {"status": "success", "message": "Application permanently deleted"}

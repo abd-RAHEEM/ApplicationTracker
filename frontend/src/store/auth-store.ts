@@ -5,8 +5,12 @@
  * is the HttpOnly cookie (managed by the browser). This store is a cache
  * of the user's identity for UI rendering purposes only.
  *
- * On page load, the app calls GET /users/me to hydrate this store.
- * If the request fails with 401, the user is unauthenticated.
+ * On page load, the app ALWAYS calls GET /users/me to revalidate.
+ * If the request fails with 401, the user is unauthenticated and the
+ * store is cleared.
+ *
+ * Storage: localStorage (not sessionStorage) so the cached user profile
+ * persists across browser restarts, matching the 30-day refresh token.
  */
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
@@ -16,6 +20,7 @@ interface AuthState {
   user: UserRead | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  lastValidatedAt: number | null; // Unix ms timestamp of last successful /users/me
 
   // Actions
   setUser: (user: UserRead | null) => void;
@@ -29,12 +34,14 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isLoading: true,
       isAuthenticated: false,
+      lastValidatedAt: null,
 
       setUser: (user) =>
         set({
           user,
           isAuthenticated: user !== null,
           isLoading: false,
+          lastValidatedAt: user !== null ? Date.now() : null,
         }),
 
       setLoading: (isLoading) => set({ isLoading }),
@@ -44,12 +51,16 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           isAuthenticated: false,
           isLoading: false,
+          lastValidatedAt: null,
         }),
     }),
     {
       name: "auth-store",
-      storage: createJSONStorage(() => sessionStorage), // sessionStorage: cleared on tab close
-      partialize: (state) => ({ user: state.user }),     // Only persist user, not loading state
+      storage: createJSONStorage(() => localStorage), // localStorage: persists across browser restarts
+      partialize: (state) => ({
+        user: state.user,
+        lastValidatedAt: state.lastValidatedAt,
+      }),
     }
   )
 );

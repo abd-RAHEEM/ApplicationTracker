@@ -4,7 +4,14 @@
  * Provides:
  *   - user, isAuthenticated, isLoading from Zustand store
  *   - login, register, logout, forgotPassword, resetPassword mutations
- *   - fetchMe query to hydrate the auth store on mount
+ *   - fetchMe query to hydrate and REVALIDATE the auth store on every mount
+ *
+ * Session revalidation strategy:
+ *   - We ALWAYS call GET /users/me on mount (even if Zustand has cached user).
+ *   - This ensures that if the backend session has expired or was revoked, we
+ *     immediately clear the stale local cache and redirect to login.
+ *   - We skip the call ONLY on auth pages (/login, /register, etc.) since those
+ *     pages have no session and the 401 → refresh → 401 loop would occur.
  */
 "use client";
 
@@ -34,12 +41,15 @@ export function useAuth() {
   const AUTH_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
   const isOnAuthPage = AUTH_PATHS.some((p) => pathname?.startsWith(p));
 
-  // ── Hydrate user on mount ────────────────────────────────────────────────────
+  // ── Hydrate & Revalidate user on mount ───────────────────────────────────────
+  // Note: We always call /users/me (not just when !user) to ensure stale cached
+  // data from localStorage is caught immediately if the backend session is gone.
   const { isLoading: isFetchingMe } = useQuery({
     queryKey: ["me"],
     queryFn: () => apiGet<UserRead>("/users/me"),
-    enabled: !user && !isOnAuthPage,          // Skip on auth pages — no session exists
+    enabled: !isOnAuthPage,           // Skip on auth pages — no session exists
     retry: false,
+    staleTime: 30 * 1000,             // Re-fetch at most every 30s (not every render)
     onSuccess: (data: UserRead) => setUser(data),
     onError: () => clearAuth(),
   } as any);
@@ -64,56 +74,60 @@ export function useAuth() {
       apiClient.post<{ data: LoginResponse }>("/auth/login", data),
     onSuccess: async (response) => {
       const loginData = response.data.data;
-      // Fetch full user profile after login
+
+      // Set the frontend session cookie immediately so middleware can detect auth.
+      // 30 days = 2592000 seconds, matching refresh token lifetime.
+      document.cookie = "session_active=1; path=/; max-age=2592000; SameSite=Lax";
+
+      // Always fetch fresh user data from /users/me — don't trust loginData.user
+      // for routing since it may be from a cached or partial response.
+      let freshUser: UserRead;
       try {
-        const userRead = await apiGet<UserRead>("/users/me");
-        setUser(userRead);
-        queryClient.setQueryData(["me"], userRead);
+        freshUser = await apiGet<UserRead>("/users/me");
+        setUser(freshUser);
+        queryClient.setQueryData(["me"], freshUser);
       } catch {
-        setUser({
+        // Fallback to loginData if /users/me fails (e.g., race condition)
+        freshUser = {
           id: loginData.user.id,
           username: loginData.user.username,
           full_name: loginData.user.full_name,
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          gmail_connected: false,
+          gmail_connected: loginData.user.gmail_connected,
           gmail_email: null,
-          initial_import_done: false,
+          initial_import_done: loginData.user.initial_import_done,
           is_email_verified: true,
-          is_onboarding_completed: false,
-        });
+          is_onboarding_completed: loginData.user.gmail_connected && loginData.user.initial_import_done,
+        };
+        setUser(freshUser);
       }
 
-      // Route based on onboarding state
-      // Use window.location.href (not router.push) to force a full page reload.
-      // Auth cookies are set by the backend (different domain), so a SPA
-      // client-side navigation may not re-evaluate cookie state correctly.
+      // Route based on FRESH user onboarding state
       let redirectPath: string;
-      if (!loginData.user.gmail_connected) {
+      if (!freshUser.gmail_connected) {
+        // New user or user who never connected Gmail → must go through onboarding
         redirectPath = "/onboarding/connect-gmail";
-      } else if (!loginData.user.initial_import_done) {
+      } else if (!freshUser.initial_import_done) {
+        // Gmail connected but initial import not configured
         redirectPath = "/onboarding/import-config";
       } else {
+        // Fully onboarded — send to intended destination or dashboard
         redirectPath = "/dashboard";
         if (typeof window !== "undefined") {
           const params = new URLSearchParams(window.location.search);
           const from = params.get("from");
-          if (from && from.startsWith("/")) {
+          if (from && from.startsWith("/") && !AUTH_PATHS.some(p => from.startsWith(p))) {
             redirectPath = from;
           }
         }
       }
 
-      // Set a lightweight cookie on the frontend domain so Next.js middleware
-      // can detect authenticated state (backend's HttpOnly cookies are invisible
-      // to middleware since they're tied to the backend domain).
-      // 30 days = 2592000 seconds, matching refresh token lifetime.
-      document.cookie = "session_active=1; path=/; max-age=2592000; SameSite=Lax; Secure";
+      toast.success(`Welcome back, ${freshUser.username}!`);
 
-      toast.success(`Welcome back, ${loginData.user.username}!`);
-
-      // Small delay so the toast is visible before navigation
+      // Use window.location.href (not router.push) to force a full page reload.
+      // This ensures the middleware re-evaluates the session_active cookie we just set.
       setTimeout(() => {
         window.location.href = redirectPath;
       }, 500);
@@ -128,21 +142,24 @@ export function useAuth() {
   const logoutMutation = useMutation({
     mutationFn: () => apiClient.post("/auth/logout"),
     onSuccess: () => {
-      clearAuth();
-      queryClient.clear();
-      // Clear the frontend session indicator cookie
-      document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax; Secure";
-      router.push("/login");
+      _performLogoutCleanup();
       toast.success("Logged out successfully");
     },
     onError: () => {
       // Force logout even if backend call fails
-      clearAuth();
-      queryClient.clear();
-      document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax; Secure";
-      router.push("/login");
+      _performLogoutCleanup();
     },
   });
+
+  function _performLogoutCleanup() {
+    clearAuth();
+    queryClient.clear();
+    // Clear the frontend session indicator cookie (both Secure and non-Secure variants)
+    document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax";
+    document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax; Secure";
+    // Use window.location for a hard redirect so all state is cleared
+    window.location.href = "/login";
+  }
 
   // ── Forgot Password ───────────────────────────────────────────────────────────
   const forgotPasswordMutation = useMutation({
