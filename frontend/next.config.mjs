@@ -29,18 +29,18 @@ const nextConfig = {
     ],
   },
 
-  // Rewrite /api/v1/* → backend URL during development
-  // In production, use the NEXT_PUBLIC_API_URL directly.
+  // Rewrite /api/* → backend URL in both development and production.
+  // This enables Same-Origin proxying so that the browser treats backend requests
+  // as first-party, avoiding third-party cookie blocking on Render subdomains.
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-    return process.env.NODE_ENV === "development"
-      ? [
-          {
-            source: "/api/:path*",
-            destination: `${apiUrl}/:path*`,
-          },
-        ]
-      : [];
+    const rawUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+    const apiUrl = rawUrl.replace(/\/v1\/?$/, "");
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${apiUrl}/:path*`,
+      },
+    ];
   },
 };
 

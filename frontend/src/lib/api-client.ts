@@ -15,9 +15,13 @@ import axios, {
 } from "axios";
 
 const rawUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
-const API_BASE_URL = rawUrl.endsWith("/v1") || rawUrl.endsWith("/v1/")
+const absoluteUrl = rawUrl.endsWith("/v1") || rawUrl.endsWith("/v1/")
   ? rawUrl
   : `${rawUrl.replace(/\/$/, "")}/v1`;
+
+export const API_BASE_URL = typeof window !== "undefined"
+  ? "/api/v1"
+  : absoluteUrl;
 
 // ── Axios Instance ─────────────────────────────────────────────────────────────
 export const apiClient: AxiosInstance = axios.create({
