@@ -41,7 +41,12 @@ GMAIL_SCOPES = [
 class GmailOAuthService:
     """Business logic for Gmail OAuth flow."""
 
-    async def get_authorization_url(self, session: AsyncSession, user_id: UUID) -> str:
+    async def get_authorization_url(
+        self,
+        session: AsyncSession,
+        user_id: UUID,
+        frontend_url: str | None = None,
+    ) -> str:
         """
         Generate the Google OAuth consent screen URL.
         
@@ -57,7 +62,7 @@ class GmailOAuthService:
         if not settings.google_client_id or not settings.google_redirect_uri:
             raise RuntimeError("Google OAuth configuration is missing in environment variables.")
 
-        state_token = create_oauth_state_token(user_id)
+        state_token = create_oauth_state_token(user_id, frontend_url)
         
         params = {
             "client_id": settings.google_client_id,

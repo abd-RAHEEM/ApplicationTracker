@@ -30,7 +30,7 @@ logger = structlog.get_logger(__name__)
 # this from being used as an access token.
 
 
-def create_oauth_state_token(user_id: UUID) -> str:
+def create_oauth_state_token(user_id: UUID, frontend_url: str | None = None) -> str:
     """Create a short-lived state JWT for the OAuth flow."""
     now = datetime.now(timezone.utc)
     expire = now + timedelta(seconds=settings.oauth_state_expire_seconds)
@@ -41,6 +41,8 @@ def create_oauth_state_token(user_id: UUID) -> str:
         "exp": expire,
         "iat": now,
     }
+    if frontend_url:
+        payload["frontend_url"] = frontend_url
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 

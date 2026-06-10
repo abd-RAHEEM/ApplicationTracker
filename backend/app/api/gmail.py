@@ -6,6 +6,7 @@ from __future__ import annotations
 import structlog
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import RedirectResponse
+from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -27,6 +28,7 @@ router = APIRouter(prefix="/gmail", tags=["Gmail"])
     summary="Get Google OAuth Authorization URL",
 )
 async def get_auth_url(
+    request: Request,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ) -> OAuthUrlResponse:
@@ -35,7 +37,15 @@ async def get_auth_url(
     The URL includes a signed CSRF state token.
     Rejects initiation if the user is already connected.
     """
-    url = await gmail_oauth_service.get_authorization_url(session, user.id)
+    # Dynamically extract frontend URL from headers if proxied, otherwise use settings
+    forwarded_host = request.headers.get("x-forwarded-host")
+    forwarded_proto = request.headers.get("x-forwarded-proto", "https")
+    if forwarded_host:
+        frontend_url = f"{forwarded_proto}://{forwarded_host}"
+    else:
+        frontend_url = settings.frontend_url.rstrip("/")
+
+    url = await gmail_oauth_service.get_authorization_url(session, user.id, frontend_url)
     return OAuthUrlResponse(auth_url=url)
 
 
@@ -57,7 +67,28 @@ async def oauth_callback(
     On success  → redirects browser to {FRONTEND_URL}/onboarding/import-config
     On failure  → redirects browser to {FRONTEND_URL}/onboarding/connect-gmail?error=...
     """
-    frontend_url = settings.frontend_url.rstrip("/")
+    # Decode state JWT to retrieve frontend_url if it was embedded
+    frontend_url = None
+    try:
+        payload = jwt.decode(
+            state,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+        )
+        frontend_url = payload.get("frontend_url")
+    except Exception:
+        pass
+
+    if not frontend_url:
+        # Fallback to headers or settings
+        forwarded_host = request.headers.get("x-forwarded-host")
+        forwarded_proto = request.headers.get("x-forwarded-proto", "https")
+        if forwarded_host:
+            frontend_url = f"{forwarded_proto}://{forwarded_host}"
+        else:
+            frontend_url = settings.frontend_url.rstrip("/")
+    else:
+        frontend_url = frontend_url.rstrip("/")
 
     # If the user is unauthenticated (e.g. because Google redirected directly to the
     # backend domain, where cookies are blocked as cross-origin on Render subdomains),
