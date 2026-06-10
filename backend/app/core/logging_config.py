@@ -27,6 +27,16 @@ import structlog
 from app.config import settings
 
 
+from typing import Any
+
+def safe_add_logger_name(logger: Any, method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+    if logger is not None:
+        try:
+            event_dict["logger"] = logger.name
+        except AttributeError:
+            pass
+    return event_dict
+
 def configure_logging() -> None:
     """
     Configure structlog and the standard library logging bridge.
@@ -36,7 +46,7 @@ def configure_logging() -> None:
     shared_processors: list = [
         structlog.contextvars.merge_contextvars,     # Thread/task-local context
         structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
+        safe_add_logger_name,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
     ]

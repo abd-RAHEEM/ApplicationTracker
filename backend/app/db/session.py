@@ -66,6 +66,9 @@ AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
     autoflush=False,               # Explicit flush for predictable behaviour
 )
 
+async_session_maker = AsyncSessionLocal
+
+
 
 # ── FastAPI Dependency ─────────────────────────────────────────────────────────
 async def get_async_session() -> AsyncIterator[AsyncSession]:

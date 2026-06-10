@@ -29,15 +29,11 @@ api_router.include_router(sync_router)
 # ── Phase 3–4 (Sync + Applications) ───────────────────────────────────────────
 from app.api.analytics import router as analytics_router
 from app.api.health import router as health_router
+from app.api.applications import router as applications_router
 
 api_router.include_router(analytics_router)
 api_router.include_router(health_router)
-# from app.api.sync import router as sync_router
-# from app.api.applications import router as applications_router
-# from app.api.dashboard import router as dashboard_router
-# api_router.include_router(sync_router)
-# api_router.include_router(applications_router)
-# api_router.include_router(dashboard_router)
+api_router.include_router(applications_router)
 
 # ── Phase 5–6 (Analytics + Bin) ───────────────────────────────────────────────
 # from app.api.analytics import router as analytics_router

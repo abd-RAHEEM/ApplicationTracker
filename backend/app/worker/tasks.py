@@ -28,17 +28,13 @@ def run_incremental_sync(self, user_id_str: str) -> None:
     
     import asyncio
     from uuid import UUID
-    from app.db.session import async_session_maker
-    from app.services.sync_service import sync_service
+    from app.services.sync_service import run_sync_for_user
 
     async def _run():
-        async with async_session_maker() as session:
-            await sync_service.run_sync_for_user(
-                session=session, 
-                user_id=UUID(user_id_str), 
-                is_initial=False,
-                celery_task_id=self.request.id
-            )
+        await run_sync_for_user(
+            user_id=UUID(user_id_str),
+            task_id=self.request.id
+        )
 
     try:
         asyncio.run(_run())
