@@ -15,6 +15,7 @@
  */
 "use client";
 
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
@@ -31,7 +32,7 @@ import type {
 } from "@/types/auth";
 
 export function useAuth() {
-  const { user, isAuthenticated, isLoading, setUser, clearAuth } = useAuthStore();
+  const { user, isAuthenticated, isLoading, setUser, clearAuth, setLoading } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -44,19 +45,27 @@ export function useAuth() {
   // ── Hydrate & Revalidate user on mount ───────────────────────────────────────
   // Note: We always call /users/me (not just when !user) to ensure stale cached
   // data from localStorage is caught immediately if the backend session is gone.
-  const { isLoading: isFetchingMe } = useQuery({
+  const { data: fetchedUser, error: fetchMeError, isSuccess, isError, isLoading: isFetchingMe } = useQuery({
     queryKey: ["me"],
     queryFn: () => apiGet<UserRead>("/users/me"),
     enabled: !isOnAuthPage,           // Skip on auth pages — no session exists
     retry: false,
     staleTime: 30 * 1000,             // Re-fetch at most every 30s (not every render)
-    onSuccess: (data: UserRead) => setUser(data),
-    onError: () => {
+  });
+
+  useEffect(() => {
+    if (isOnAuthPage) {
+      setLoading(false);
+      return;
+    }
+    if (isSuccess && fetchedUser) {
+      setUser(fetchedUser);
+    } else if (isError || fetchMeError) {
       document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax";
       document.cookie = "session_active=; path=/; max-age=0; SameSite=Lax; Secure";
       clearAuth();
-    },
-  } as any);
+    }
+  }, [fetchedUser, fetchMeError, isSuccess, isError, isOnAuthPage, setUser, clearAuth, setLoading]);
 
   // ── Register ─────────────────────────────────────────────────────────────────
   const registerMutation = useMutation({
