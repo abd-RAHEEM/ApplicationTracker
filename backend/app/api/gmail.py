@@ -4,14 +4,14 @@ Gmail OAuth and Onboarding routes.
 from __future__ import annotations
 
 import structlog
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.exceptions import BadRequestException
 from app.db.session import get_async_session
-from app.dependencies import get_current_user, require_gmail_connected
+from app.dependencies import get_current_user, get_optional_user, require_gmail_connected
 from app.models.user import User
 from app.schemas.gmail import InitialImportConfigRequest, OAuthUrlResponse
 from app.services.gmail_oauth_service import gmail_oauth_service
@@ -44,10 +44,11 @@ async def get_auth_url(
     summary="Google OAuth Callback — redirects back to frontend",
 )
 async def oauth_callback(
+    request: Request,
     code: str = Query(..., description="Authorization code from Google"),
     state: str = Query(..., description="CSRF state token"),
     error: str | None = Query(None, description="Error from Google (user denied)"),
-    user: User = Depends(get_current_user),
+    user: User | None = Depends(get_optional_user),
     session: AsyncSession = Depends(get_async_session),
 ) -> RedirectResponse:
     """
@@ -55,12 +56,25 @@ async def oauth_callback(
 
     On success  → redirects browser to {FRONTEND_URL}/onboarding/import-config
     On failure  → redirects browser to {FRONTEND_URL}/onboarding/connect-gmail?error=...
-
-    The browser sends auth cookies to this backend endpoint (same domain as where
-    cookies were set), so get_current_user works here. After callback, we redirect
-    the browser to the frontend with a success/error signal in the query string.
     """
     frontend_url = settings.frontend_url.rstrip("/")
+
+    # If the user is unauthenticated (e.g. because Google redirected directly to the
+    # backend domain, where cookies are blocked as cross-origin on Render subdomains),
+    # we redirect the browser to the frontend proxy callback to retrieve cookies.
+    if not user:
+        if "proxied" in request.query_params:
+            logger.warning("gmail_oauth_callback_failed_no_session")
+            return RedirectResponse(
+                url=f"{frontend_url}/onboarding/connect-gmail?error=session_expired",
+                status_code=302,
+            )
+        
+        logger.info("gmail_oauth_callback_redirecting_to_proxy")
+        proxy_url = f"{frontend_url}/api/v1/gmail/callback?code={code}&state={state}&proxied=true"
+        if error:
+            proxy_url += f"&error={error}"
+        return RedirectResponse(url=proxy_url, status_code=302)
 
     # Handle user-denied or Google error
     if error:
