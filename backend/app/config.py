@@ -145,6 +145,21 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def validate_database_url(cls, v: str) -> str:
+        """Automatically rewrite direct Supabase host to IPv4-compatible pooler host if needed."""
+        if "db.exgxhodksfxgosdahziz.supabase.co" in v:
+            v = v.replace(
+                "db.exgxhodksfxgosdahziz.supabase.co",
+                "aws-1-ap-southeast-2.pooler.supabase.com"
+            )
+            v = v.replace(
+                "postgresql+asyncpg://postgres:",
+                "postgresql+asyncpg://postgres.exgxhodksfxgosdahziz:"
+            )
+        return v
+
     @property
     def allowed_origins(self) -> list[str]:
         """Get the parsed list of allowed CORS origins."""
