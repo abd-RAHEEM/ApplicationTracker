@@ -18,6 +18,10 @@ class OAuthUrlResponse(AppBaseModel):
 
 class InitialImportConfigRequest(AppBaseModel):
     """Payload to configure the initial historical import."""
+    import_range: str = Field(
+        ...,
+        description="The selected historical range (e.g. 1m, 3m, 6m)",
+    )
     import_from: datetime = Field(
         ...,
         description="The starting date for historical email import",
