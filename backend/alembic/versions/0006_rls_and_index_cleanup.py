@@ -3,7 +3,7 @@ Migration: Enable RLS on application_status_history + drop duplicate/unused inde
 
 This migration:
 1. Enables Row Level Security (RLS) on application_status_history (marked CRITICAL in Supabase advisor)
-2. Adds user-based RLS policies so users can only see their own status history
+2. Adds user-based RLS policies so users can only see their own status history (idempotently)
 3. Drops duplicate indexes (keeps the first/primary one)
 
 Run via:
@@ -25,13 +25,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # ─────────────────────────────────────────────────────────────────────────
     # 1. Enable RLS on application_status_history
-    # ─────────────────────────────────────────────────────────────────────────
     op.execute("ALTER TABLE public.application_status_history ENABLE ROW LEVEL SECURITY;")
 
-    # Allow users to SELECT only their own status history
+    # Allow users to SELECT only their own status history (safely using DROP POLICY IF EXISTS)
     op.execute("""
+        DROP POLICY IF EXISTS "Users can view own status history" ON public.application_status_history;
         CREATE POLICY "Users can view own status history"
         ON public.application_status_history
         FOR SELECT
@@ -40,6 +39,7 @@ def upgrade() -> None:
 
     # Allow users to INSERT their own status history rows
     op.execute("""
+        DROP POLICY IF EXISTS "Users can insert own status history" ON public.application_status_history;
         CREATE POLICY "Users can insert own status history"
         ON public.application_status_history
         FOR INSERT
@@ -48,21 +48,14 @@ def upgrade() -> None:
 
     # Allow service role to bypass (for background workers)
     op.execute("""
+        DROP POLICY IF EXISTS "Service role bypass" ON public.application_status_history;
         CREATE POLICY "Service role bypass"
         ON public.application_status_history
         FOR ALL
         USING (auth.role() = 'service_role');
     """)
 
-    # ─────────────────────────────────────────────────────────────────────────
     # 2. Drop duplicate indexes
-    # Duplicates identified by Supabase advisor:
-    #   - public.application_analytics: keep primary key index
-    #   - public.gmail_connections: keep primary key index
-    #   - public.users: keep primary key index
-    # ─────────────────────────────────────────────────────────────────────────
-    
-    # Drop duplicate indexes if they exist (use IF EXISTS to be safe)
     duplicate_indexes_to_drop = [
         "ix_application_analytics_user_id_dup",
         "ix_gmail_connections_user_id_dup",
@@ -72,12 +65,7 @@ def upgrade() -> None:
     for idx in duplicate_indexes_to_drop:
         op.execute(f"DROP INDEX IF EXISTS public.{idx};")
 
-    # ─────────────────────────────────────────────────────────────────────────
     # 3. Drop unused indexes
-    # These tables have indexes that have never been used per Supabase stats.
-    # We keep primary keys and foreign key indexes; drop redundant ones.
-    # ─────────────────────────────────────────────────────────────────────────
-    
     unused_indexes_to_drop = [
         # application_status_history
         "ix_application_status_history_created_at",
@@ -119,5 +107,3 @@ def downgrade() -> None:
     op.execute("DROP POLICY IF EXISTS \"Users can view own status history\" ON public.application_status_history;")
     op.execute("DROP POLICY IF EXISTS \"Users can insert own status history\" ON public.application_status_history;")
     op.execute("DROP POLICY IF EXISTS \"Service role bypass\" ON public.application_status_history;")
-    # Note: Dropped indexes are not re-created in downgrade to avoid
-    # re-introducing the performance issues they were causing.
