@@ -26,15 +26,30 @@ def _get_key(request) -> str:  # type: ignore[no-untyped-def]
     Falls back to IP address if user is not authenticated.
     Resolves X-Forwarded-For for reverse proxy environments.
     """
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    
-    real_ip = request.headers.get("x-real-ip")
-    if real_ip:
-        return real_ip.strip()
+    import structlog
+    dbg_logger = structlog.get_logger("app.rate_limiter")
 
-    return get_remote_address(request)
+    forwarded_for = request.headers.get("x-forwarded-for")
+    real_ip = request.headers.get("x-real-ip")
+    client_host = request.client.host if request.client else None
+
+    resolved_ip = None
+    if forwarded_for:
+        resolved_ip = forwarded_for.split(",")[0].strip()
+    elif real_ip:
+        resolved_ip = real_ip.strip()
+    else:
+        resolved_ip = client_host
+
+    dbg_logger.info(
+        "rate_limit_key_resolved",
+        path=request.url.path,
+        x_forwarded_for=forwarded_for,
+        x_real_ip=real_ip,
+        client_host=client_host,
+        resolved_ip=resolved_ip
+    )
+    return resolved_ip or "unknown"
 
 
 # Shared limiter instance — imported by route modules
