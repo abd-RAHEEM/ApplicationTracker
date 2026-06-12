@@ -6,10 +6,10 @@ from uuid import UUID
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, PrimaryKeyMixin, TimestampMixin
+from app.models.base import Base, PrimaryKeyMixin, TimestampMixin, JSONB
 
 if TYPE_CHECKING:
     from app.models.user import User

@@ -10,10 +10,10 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import ARRAY, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, PrimaryKeyMixin, TimestampMixin
+from app.models.base import Base, PrimaryKeyMixin, TimestampMixin, ARRAY_Compatible
 
 if TYPE_CHECKING:
     from app.models.application import Application
@@ -82,7 +82,7 @@ class Email(Base, PrimaryKeyMixin, TimestampMixin):
         comment="First ~200 chars of body — full body is never persisted",
     )
     gmail_label_ids: Mapped[list[str] | None] = mapped_column(
-        ARRAY(Text),
+        ARRAY_Compatible(Text),
         nullable=True,
         comment="Gmail system labels e.g. ['INBOX', 'UNREAD']",
     )

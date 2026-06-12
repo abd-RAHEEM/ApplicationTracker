@@ -66,3 +66,70 @@ class TimestampMixin:
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+
+# ── Dialect-Agnostic Types for Testing Compatibility ──────────────────────────
+from sqlalchemy.types import TypeDecorator, CHAR, Text, JSON
+from sqlalchemy.dialects.postgresql import (
+    INET as PG_INET,
+    ARRAY as PG_ARRAY,
+    JSONB as PG_JSONB,
+)
+import json
+
+
+class INET(TypeDecorator):
+    """Dialect-agnostic INET type. Compiles to PostgreSQL INET, CHAR(45) otherwise."""
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(PG_INET())
+        else:
+            return dialect.type_descriptor(CHAR(45))
+
+
+class ARRAY_Compatible(TypeDecorator):
+    """Dialect-agnostic ARRAY type. Uses PG ARRAY on postgresql, JSON text on other dialects."""
+    impl = Text
+    cache_ok = True
+
+    def __init__(self, item_type):
+        super().__init__()
+        self.item_type = item_type
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(PG_ARRAY(self.item_type))
+        else:
+            return dialect.type_descriptor(Text())
+
+    def process_bind_param(self, value, dialect):
+        if dialect.name == "postgresql":
+            return value
+        if value is None:
+            return None
+        return json.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        if dialect.name == "postgresql":
+            return value
+        if not value or value == "{}":
+            return []
+        try:
+            return json.loads(value)
+        except Exception:
+            return []
+
+
+class JSONB(TypeDecorator):
+    """Dialect-agnostic JSONB type. Compiles to PostgreSQL JSONB, JSON otherwise."""
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(PG_JSONB())
+        else:
+            return dialect.type_descriptor(JSON())

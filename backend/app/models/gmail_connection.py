@@ -17,10 +17,10 @@ from uuid import UUID
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, PrimaryKeyMixin, TimestampMixin
+from app.models.base import Base, PrimaryKeyMixin, TimestampMixin, ARRAY_Compatible
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -77,7 +77,7 @@ class GmailConnection(Base, PrimaryKeyMixin, TimestampMixin):
         comment="UTC expiry time for the last-issued access token — used for proactive refresh",
     )
     scopes: Mapped[list[str]] = mapped_column(
-        ARRAY(Text),
+        ARRAY_Compatible(Text),
         nullable=False,
         server_default="{}",
         comment="OAuth scopes granted (should only contain gmail.readonly)",
