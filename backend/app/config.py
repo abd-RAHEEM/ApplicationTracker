@@ -96,10 +96,10 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
 
     # ── Rate Limiting ──────────────────────────────────────────────────────────
-    rate_limit_login: str = "5/minute"
-    rate_limit_register: str = "3/minute"
-    rate_limit_password_reset: str = "3/minute"
-    rate_limit_sync: str = "2/minute"
+    rate_limit_login: str = "30/minute"
+    rate_limit_register: str = "15/minute"
+    rate_limit_password_reset: str = "15/minute"
+    rate_limit_sync: str = "5/minute"
 
     # ── Password Reset ─────────────────────────────────────────────────────────
     password_reset_token_expire_minutes: int = Field(default=15, ge=5, le=60)
