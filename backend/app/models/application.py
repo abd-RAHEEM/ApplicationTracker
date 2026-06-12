@@ -70,7 +70,7 @@ class Application(Base, PrimaryKeyMixin, TimestampMixin):
     company_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role_title: Mapped[str] = mapped_column(String(255), nullable=False)
     current_status: Mapped[ApplicationStatus] = mapped_column(
-        SAEnum(ApplicationStatus, name="application_status", create_type=True),
+        SAEnum(ApplicationStatus, name="application_status", values_callable=lambda x: [e.value for e in x], create_type=True),
         nullable=False,
         default=ApplicationStatus.APPLIED,
         index=True,

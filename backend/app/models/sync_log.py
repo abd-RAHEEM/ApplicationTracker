@@ -51,11 +51,11 @@ class SyncLog(Base, PrimaryKeyMixin, TimestampMixin):
         index=True,
     )
     sync_type: Mapped[SyncType] = mapped_column(
-        SAEnum(SyncType, name="sync_type", create_type=True),
+        SAEnum(SyncType, name="sync_type", values_callable=lambda x: [e.value for e in x], create_type=True),
         nullable=False,
     )
     status: Mapped[SyncStatus] = mapped_column(
-        SAEnum(SyncStatus, name="sync_status", create_type=True),
+        SAEnum(SyncStatus, name="sync_status", values_callable=lambda x: [e.value for e in x], create_type=True),
         nullable=False,
         default=SyncStatus.PENDING,
         index=True,
