@@ -24,9 +24,16 @@ def _get_key(request) -> str:  # type: ignore[no-untyped-def]
     Rate limit key function.
 
     Falls back to IP address if user is not authenticated.
-    Authenticated routes can use user ID by overriding the key_func
-    on the specific decorator.
+    Resolves X-Forwarded-For for reverse proxy environments.
     """
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip.strip()
+
     return get_remote_address(request)
 
 
