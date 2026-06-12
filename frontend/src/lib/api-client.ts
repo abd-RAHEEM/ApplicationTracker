@@ -31,7 +31,7 @@ export const apiClient: AxiosInstance = axios.create({
     "Content-Type": "application/json",
     Accept: "application/json",
   },
-  timeout: 30_000,
+  timeout: 15_000,
 });
 
 // ── Refresh Token Lock ─────────────────────────────────────────────────────────
@@ -145,8 +145,25 @@ export interface ApiError {
 }
 
 export function getApiError(error: unknown): ApiError {
-  if (axios.isAxiosError(error) && error.response?.data?.error) {
-    return error.response.data.error as ApiError;
+  if (axios.isAxiosError(error)) {
+    console.error("API Error details:", error);
+    // Handle request timeout (e.g. Render cold start)
+    if (error.code === "ECONNABORTED" || error.message.toLowerCase().includes("timeout")) {
+      return {
+        code: "TIMEOUT",
+        message: "Server is starting up, please wait... (request timed out)",
+      };
+    }
+    // Handle Network Error (server down or starting up)
+    if (error.message === "Network Error") {
+      return {
+        code: "NETWORK_ERROR",
+        message: "Network error. The server might be down or starting up. Please try again.",
+      };
+    }
+    if (error.response?.data?.error) {
+      return error.response.data.error as ApiError;
+    }
   }
   return {
     code: "UNKNOWN_ERROR",

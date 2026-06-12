@@ -175,9 +175,20 @@ def _error_response(
     )
 
 
+def _add_cors_headers(request: Request, response: JSONResponse) -> JSONResponse:
+    from app.config import settings as _settings
+    origin = request.headers.get("origin", "")
+    if origin and ("*" in _settings.allowed_origins or origin in _settings.allowed_origins):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Vary"] = "Origin"
+    return response
+
+
 # ── Exception Handlers ─────────────────────────────────────────────────────────
 def register_exception_handlers(app: FastAPI) -> None:
     """Register all custom exception handlers on the FastAPI application."""
+    from slowapi.errors import RateLimitExceeded
 
     @app.exception_handler(AppException)
     async def app_exception_handler(
@@ -215,6 +226,21 @@ def register_exception_handlers(app: FastAPI) -> None:
             {"fields": field_errors},
         )
 
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_exceeded_handler(
+        request: Request, exc: RateLimitExceeded
+    ) -> JSONResponse:
+        logger.warning(
+            "rate_limit_exceeded",
+            path=request.url.path,
+        )
+        response = _error_response(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "RATE_LIMIT_EXCEEDED",
+            "Too many requests — please try again later",
+        )
+        return _add_cors_headers(request, response)
+
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(
         request: Request, exc: Exception
@@ -239,10 +265,4 @@ def register_exception_handlers(app: FastAPI) -> None:
         # This means the response bypasses CORSMiddleware and never gets CORS headers.
         # Without these headers, the browser blocks the response with a CORS policy error,
         # hiding the real 500 error from the frontend. Add headers manually here.
-        from app.config import settings as _settings
-        origin = request.headers.get("origin", "")
-        if origin and origin in _settings.allowed_origins:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Vary"] = "Origin"
-        return response
+        return _add_cors_headers(request, response)

@@ -36,17 +36,30 @@ export const useGmail = () => {
         import_from: importFrom 
       };
       await apiClient.post('/gmail/onboarding/complete', payload);
-      
-      // Refresh user state to reflect completed onboarding
-      const { data: userWrapper } = await apiClient.get<{ data: UserRead }>('/users/me');
-      setUser(userWrapper.data);
     } catch (err: any) {
       const message =
         err.response?.data?.error?.message ||
         err.response?.data?.message ||
         'Failed to complete onboarding configuration';
       setError(message);
+      setIsLoading(false);
       throw err; // Re-throw so the component can stop progression
+    }
+
+    try {
+      // Refresh user state to reflect completed onboarding
+      const { data: userWrapper } = await apiClient.get<{ data: UserRead }>('/users/me');
+      setUser(userWrapper.data);
+    } catch (refreshErr) {
+      console.error("Failed to refresh user state after onboarding completion:", refreshErr);
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        setUser({
+          ...currentUser,
+          is_onboarding_completed: true,
+          initial_import_done: true,
+        });
+      }
     } finally {
       setIsLoading(false);
     }

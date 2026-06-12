@@ -15,6 +15,8 @@ celery_app = Celery(
     include=["app.worker.tasks"]
 )
 
+from celery.schedules import crontab
+
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
@@ -22,4 +24,10 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_track_started=True,
+    beat_schedule={
+        "purge-expired-bin-items": {
+            "task": "app.worker.tasks.purge_expired_bin_records",
+            "schedule": crontab(hour="*/6"),  # Run every 6 hours
+        },
+    },
 )

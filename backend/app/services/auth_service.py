@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 import structlog
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -93,14 +94,17 @@ class AuthService:
         # 2. Hash password
         hashed = hash_password(password)
 
-        # 3. Create user
-        user = await user_repository.create(
-            session,
-            full_name=full_name,
-            username=username.lower(),
-            hashed_password=hashed,
-            is_active=True,
-        )
+        try:
+            user = await user_repository.create(
+                session,
+                full_name=full_name,
+                username=username.lower(),
+                hashed_password=hashed,
+                is_active=True,
+            )
+        except IntegrityError as e:
+            logger.warning("user_registration_integrity_error", username=username, error=str(e))
+            raise UsernameTakenException()
 
         logger.info("user_registered", user_id=str(user.id), username=user.username)
 

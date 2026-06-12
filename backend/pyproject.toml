@@ -42,6 +42,8 @@ dependencies = [
     # ── NLP — Email Parsing (Phase 3) ─────────────────────────────────────────
     "spacy>=3.7.0",                     # en_core_web_sm NER
     "python-dateutil>=2.9.0",           # Flexible date parsing
+    "tldextract>=5.1.0",
+
 
     # ── Gmail API (Phase 2) ───────────────────────────────────────────────────
     "google-auth>=2.29.0",

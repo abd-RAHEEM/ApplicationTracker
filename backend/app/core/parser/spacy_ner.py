@@ -5,6 +5,19 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
+class DummyDoc:
+    def __init__(self) -> None:
+        self.ents = []
+
+
+class DummySpacy:
+    def __init__(self) -> None:
+        self.failed = True
+
+    def __call__(self, text: str) -> DummyDoc:
+        return DummyDoc()
+
+
 # Lazy load spaCy to avoid huge startup times if it's not needed immediately
 nlp = None
 
@@ -17,8 +30,7 @@ def _get_nlp():
         except Exception as e:
             logger.error("spacy_load_failed", error=str(e))
             # Create a dummy callable to prevent repeated failures crashing
-            nlp = lambda text: []
-            nlp.failed = True
+            nlp = DummySpacy()
     return nlp
 
 

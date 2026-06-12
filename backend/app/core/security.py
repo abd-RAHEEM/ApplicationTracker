@@ -160,7 +160,12 @@ def _sha256(value: str) -> str:
 def _get_aes_key() -> bytes:
     """Decode and validate the AES-256-GCM encryption key from settings."""
     try:
-        key_bytes = b64decode(settings.encryption_key + "==")
+        key = settings.encryption_key.strip()
+        # Strip trailing '=' padding if any
+        key = key.rstrip("=")
+        # Re-pad correctly
+        padded_key = key + "=" * ((4 - len(key) % 4) % 4)
+        key_bytes = b64decode(padded_key)
         # Accept both 32-byte (AES-256) keys
         if len(key_bytes) < 32:
             raise ValueError(

@@ -20,7 +20,7 @@ class UserSession(Base, PrimaryKeyMixin, TimestampMixin):
     Represents a user's authenticated session via a refresh token.
 
     Design decisions:
-    - refresh_token_hash stores the bcrypt hash of the opaque token.
+    - refresh_token_hash stores the SHA-256 hash of the opaque token.
       The raw token is delivered via HttpOnly cookie and never stored.
     - is_revoked flag allows immediate invalidation without deleting the record
       (audit trail preserved).
@@ -40,7 +40,7 @@ class UserSession(Base, PrimaryKeyMixin, TimestampMixin):
     refresh_token_hash: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        comment="bcrypt hash of the opaque refresh token",
+        comment="SHA-256 hash of the opaque refresh token",
     )
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -76,11 +76,31 @@ class ApplicationService:
                 app_id=str(existing_app.id), 
                 new_status=event.event_type.value
             )
-            # Only update status if it's a logical progression or different.
-            # For simplicity, we just update to the new status and bump last_activity_at.
-            # In a full system we'd check chronological ordering.
-            existing_app.current_status = event.event_type
-            existing_app.last_activity_at = event.event_date
+            # Status regression guard (OFFER > INTERVIEW > ASSESSMENT > APPLIED > PENDING, REJECTED is terminal)
+            STATUS_PRIORITY = {
+                ApplicationStatus.PENDING: 0,
+                ApplicationStatus.APPLIED: 1,
+                ApplicationStatus.ASSESSMENT: 2,
+                ApplicationStatus.INTERVIEW: 3,
+                ApplicationStatus.OFFER: 4,
+            }
+            
+            current = existing_app.current_status
+            new_status = event.event_type
+            
+            should_update_status = False
+            if current != ApplicationStatus.REJECTED:
+                if new_status == ApplicationStatus.REJECTED:
+                    should_update_status = True
+                elif new_status != current and STATUS_PRIORITY.get(new_status, 0) > STATUS_PRIORITY.get(current, 0):
+                    should_update_status = True
+            
+            if should_update_status:
+                existing_app.current_status = new_status
+            
+            # We still update last_activity_at if the event date is newer
+            if not existing_app.last_activity_at or event.event_date > existing_app.last_activity_at:
+                existing_app.last_activity_at = event.event_date
             
             # Record history
             history = ApplicationStatusHistory(
@@ -128,11 +148,25 @@ class ApplicationService:
             session.add(history)
 
     def _company_match(self, comp1: str, comp2: str) -> bool:
-        """Helper for basic company string matching."""
-        c1 = comp1.lower()
-        c2 = comp2.lower()
-        # E.g. "Google" in "Google LLC"
-        return c1 in c2 or c2 in c1
+        """Helper for basic company string matching using SequenceMatcher."""
+        import difflib
+        import re
+        
+        def clean_company(name: str) -> str:
+            name = name.lower().strip()
+            # Remove punctuation and common corporate suffixes
+            name = re.sub(r'(?i)\b(inc\.|inc|llc|ltd\.|ltd|corporation|corp\.|corp|co\.|co)\b', '', name)
+            name = re.sub(r'^\W+|\W+$', '', name)
+            return name.strip()
+
+        c1 = clean_company(comp1)
+        c2 = clean_company(comp2)
+        
+        if not c1 or not c2:
+            return False
+            
+        ratio = difflib.SequenceMatcher(None, c1, c2).ratio()
+        return ratio >= 0.85
         
     def _role_match(self, role1: str, role2: str) -> bool:
         """Helper for basic role string matching."""

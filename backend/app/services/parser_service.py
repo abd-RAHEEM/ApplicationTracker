@@ -117,42 +117,54 @@ class ParserService:
 
         try:
             # Query unparsed emails
+            # Query unparsed emails with parse_attempts < 3
             result = await session.execute(
                 select(Email)
-                .where(Email.user_id == user_id, Email.is_parsed == False)
+                .where(
+                    Email.user_id == user_id,
+                    Email.is_parsed == False,
+                    Email.parse_attempts < 3
+                )
                 .order_by(Email.gmail_internal_date.asc())
             )
             unparsed_emails = result.scalars().all()
 
             for email in unparsed_emails:
-                email.parse_attempts += 1
+                attempts = email.parse_attempts + 1
                 try:
-                    # Pre-filter
-                    if is_job_related(email.subject, email.sender, email.snippet):
-                        # Temporarily fetch full body
-                        body = await client.fetch_full_body(email.gmail_msg_id)
+                    async with session.begin_nested():
+                        email.parse_attempts = attempts
+                        # Pre-filter
+                        if is_job_related(email.subject, email.sender, email.snippet):
+                            # Temporarily fetch full body
+                            body = await client.fetch_full_body(email.gmail_msg_id)
+                            
+                            event = self.parse_email(
+                                msg_id=email.gmail_msg_id,
+                                thread_id=email.gmail_thread_id,
+                                subject=email.subject,
+                                sender=email.sender,
+                                date=email.date,
+                                body=body
+                            )
+                            
+                            if event and event.email_type == EmailType.APPLICATION_EVENT:
+                                await application_service.process_normalized_event(session, user_id, event)
                         
-                        event = self.parse_email(
-                            msg_id=email.gmail_msg_id,
-                            thread_id=email.gmail_thread_id,
-                            subject=email.subject,
-                            sender=email.sender,
-                            date=email.date,
-                            body=body
-                        )
-                        
-                        if event and event.email_type == EmailType.APPLICATION_EVENT:
-                            await application_service.process_normalized_event(session, user_id, event)
-                    
-                    email.is_parsed = True
-                    email.parsed_at = datetime.now()
-                    email.last_parse_error = None
-                    await session.commit() # commit after each successful email parsing
-
+                        email.is_parsed = True
+                        email.parsed_at = datetime.now()
+                        email.last_parse_error = None
                 except Exception as e:
                     logger.exception("email_parsing_error", msg_id=email.gmail_msg_id)
-                    email.last_parse_error = str(e)
-                    await session.commit()
+                    try:
+                        async with session.begin_nested():
+                            email.parse_attempts = attempts
+                            email.last_parse_error = str(e)
+                    except Exception as nested_err:
+                        logger.error("failed_to_write_error_state", msg_id=email.gmail_msg_id, error=str(nested_err))
+            
+            # Commit once at the end of the batch
+            await session.commit()
         finally:
             await client.close()
 

@@ -59,6 +59,7 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => localStorage), // localStorage: persists across browser restarts
       partialize: (state) => ({
         user: state.user,
+        isAuthenticated: state.user !== null,
         lastValidatedAt: state.lastValidatedAt,
       }),
     }

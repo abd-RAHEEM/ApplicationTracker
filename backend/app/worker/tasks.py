@@ -68,3 +68,54 @@ def generate_analytics_task(self, user_id_str: str) -> None:
     except Exception as e:
         logger.exception("celery_task_failed", task="generate_analytics", user_id=user_id_str)
         raise self.retry(exc=e, countdown=10)
+
+@celery_app.task(bind=True, max_retries=3)
+def purge_expired_bin_records(self) -> None:
+    """
+    Periodic task to permanently delete (purge) soft-deleted applications
+    whose retention period (purge_after) has expired.
+    """
+    logger.info("celery_task_started", task="purge_expired_bin_records")
+    
+    import asyncio
+    from datetime import datetime, timezone
+    from sqlalchemy import select, delete
+    from app.db.session import async_session_maker
+    from app.models.deleted_application import DeletedApplication
+    from app.models.application import Application
+
+    async def _run():
+        async with async_session_maker() as session:
+            now = datetime.now(timezone.utc)
+            # Find expired entries that haven't been purged
+            result = await session.execute(
+                select(DeletedApplication)
+                .where(
+                    DeletedApplication.purge_after <= now,
+                    DeletedApplication.is_purged == False
+                )
+            )
+            expired = result.scalars().all()
+            
+            if not expired:
+                logger.info("no_expired_applications_to_purge")
+                return
+                
+            count = 0
+            for record in expired:
+                # Delete the application record.
+                # DB CASCADE will delete the DeletedApplication and status history records.
+                await session.execute(
+                    delete(Application).where(Application.id == record.application_id)
+                )
+                count += 1
+                
+            await session.commit()
+            logger.info("purged_expired_applications", count=count)
+
+    try:
+        asyncio.run(_run())
+        logger.info("celery_task_completed", task="purge_expired_bin_records")
+    except Exception as e:
+        logger.exception("celery_task_failed", task="purge_expired_bin_records")
+        raise self.retry(exc=e, countdown=60)

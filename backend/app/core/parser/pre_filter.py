@@ -31,10 +31,10 @@ def is_job_related(subject: str | None, sender: str | None, snippet: str | None)
     if any(k in sender for k in ["careers@", "jobs@", "talent@", "recruiting@", "ats@"]):
         return True
         
-    job_score = sum(1 for k in job_keywords if k in combined_text)
-    spam_score = sum(1 for k in spam_keywords if k in combined_text)
+    job_score = sum(1 for k in job_keywords if re.search(rf"\b{re.escape(k)}\b", combined_text))
+    spam_score = sum(1 for k in spam_keywords if re.search(rf"\b{re.escape(k)}\b", combined_text))
     
     if spam_score > job_score:
         return False
         
-    return job_score > 0
+    return True

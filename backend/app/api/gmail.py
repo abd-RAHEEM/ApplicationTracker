@@ -55,9 +55,10 @@ async def get_auth_url(
 )
 async def oauth_callback(
     request: Request,
-    code: str = Query(..., description="Authorization code from Google"),
-    state: str = Query(..., description="CSRF state token"),
+    code: str | None = Query(None, description="Authorization code from Google"),
+    state: str | None = Query(None, description="CSRF state token"),
     error: str | None = Query(None, description="Error from Google (user denied)"),
+    nonce: str | None = Query(None, description="Short-lived nonce to retrieve code/state"),
     user: User | None = Depends(get_optional_user),
     session: AsyncSession = Depends(get_async_session),
 ) -> RedirectResponse:
@@ -67,17 +68,40 @@ async def oauth_callback(
     On success  → redirects browser to {FRONTEND_URL}/onboarding/import-config
     On failure  → redirects browser to {FRONTEND_URL}/onboarding/connect-gmail?error=...
     """
+    import secrets
+    import json
+    from app.core.redis import redis_client
+
+    # If nonce is provided, retrieve real parameters from Redis
+    if nonce:
+        redis_key = f"oauth:nonce:{nonce}"
+        cached_data = await redis_client.get(redis_key)
+        if cached_data:
+            await redis_client.delete(redis_key)
+            data = json.loads(cached_data)
+            code = data.get("code")
+            state = data.get("state")
+            error = data.get("error")
+        else:
+            logger.warning("gmail_oauth_callback_invalid_nonce", nonce=nonce)
+            frontend_url = settings.frontend_url.rstrip("/")
+            return RedirectResponse(
+                url=f"{frontend_url}/onboarding/connect-gmail?error=session_expired",
+                status_code=302,
+            )
+
     # Decode state JWT to retrieve frontend_url if it was embedded
     frontend_url = None
-    try:
-        payload = jwt.decode(
-            state,
-            settings.jwt_secret_key,
-            algorithms=[settings.jwt_algorithm],
-        )
-        frontend_url = payload.get("frontend_url")
-    except Exception:
-        pass
+    if state:
+        try:
+            payload = jwt.decode(
+                state,
+                settings.jwt_secret_key,
+                algorithms=[settings.jwt_algorithm],
+            )
+            frontend_url = payload.get("frontend_url")
+        except Exception:
+            pass
 
     if not frontend_url:
         # Fallback to headers or settings
@@ -101,10 +125,18 @@ async def oauth_callback(
                 status_code=302,
             )
         
-        logger.info("gmail_oauth_callback_redirecting_to_proxy")
-        proxy_url = f"{frontend_url}/api/v1/gmail/callback?code={code}&state={state}&proxied=true"
-        if error:
-            proxy_url += f"&error={error}"
+        # Store code, state, error in Redis keyed by a random nonce
+        oauth_nonce = secrets.token_urlsafe(16)
+        redis_key = f"oauth:nonce:{oauth_nonce}"
+        payload = {
+            "code": code,
+            "state": state,
+            "error": error
+        }
+        await redis_client.set(redis_key, json.dumps(payload), ex=60) # 60 seconds TTL
+
+        logger.info("gmail_oauth_callback_redirecting_to_proxy_with_nonce")
+        proxy_url = f"{frontend_url}/api/v1/gmail/callback?nonce={oauth_nonce}&proxied=true"
         return RedirectResponse(url=proxy_url, status_code=302)
 
     # Handle user-denied or Google error
@@ -112,6 +144,13 @@ async def oauth_callback(
         logger.warning("gmail_oauth_denied_by_user", error=error)
         return RedirectResponse(
             url=f"{frontend_url}/onboarding/connect-gmail?error=access_denied",
+            status_code=302,
+        )
+
+    if not code or not state:
+        logger.warning("gmail_oauth_callback_missing_params")
+        return RedirectResponse(
+            url=f"{frontend_url}/onboarding/connect-gmail?error=oauth_failed",
             status_code=302,
         )
 

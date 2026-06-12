@@ -85,6 +85,11 @@ class ApplicationAnalytics(Base, PrimaryKeyMixin, TimestampMixin):
         nullable=True,
         comment="(rejected_count / applied_count) * 100",
     )
+    response_rate: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="((interview_count + offer_count + rejected_count) / total_applications) * 100",
+    )
 
     # ── Time-Series Data ───────────────────────────────────────────────────────
     monthly_data: Mapped[list[dict[str, Any]] | None] = mapped_column(

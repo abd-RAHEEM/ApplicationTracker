@@ -85,10 +85,7 @@ def _clear_auth_cookies(response: Response) -> None:
 
 
 def _get_client_ip(request: Request) -> str | None:
-    """Extract real client IP, handling reverse-proxy X-Forwarded-For."""
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+    """Extract real client IP using request.client.host directly to prevent X-Forwarded-For spoofing."""
     return request.client.host if request.client else None
 
 

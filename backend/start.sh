@@ -9,7 +9,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 echo "==> Starting from directory: $(pwd)"
 
 # Start Celery worker in the background
-poetry run celery -A app.worker.celery_app worker --loglevel=info &
+poetry run celery -A app.worker.celery_app worker --loglevel=info -B &
 
 # Run database migrations
 # Use -c to explicitly name the config file — removes any ambiguity about

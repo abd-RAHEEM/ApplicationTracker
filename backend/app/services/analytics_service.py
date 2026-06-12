@@ -92,13 +92,8 @@ class AnalyticsService:
         
         analytics.interview_rate = round(interview_rate, 2)
         analytics.offer_rate = round(offer_rate, 2)
-        # We reuse rejection_rate column in schema to store response_rate for now
-        # Actually wait, schema has rejection_rate. Let me add response_rate dynamically
-        # or use rejection_rate as rejection_rate.
         analytics.rejection_rate = round((counts[ApplicationStatus.REJECTED] / total) * 100 if total > 0 else 0.0, 2)
-        
-        # Wait, the prompt requested response_rate but schema has rejection_rate. I will put response_rate into monthly_data 
-        # or we just compute it on the fly in the API. 
+        analytics.response_rate = round(response_rate, 2)
         
         analytics.monthly_data = monthly_data
         

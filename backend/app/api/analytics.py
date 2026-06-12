@@ -47,12 +47,7 @@ async def get_analytics(
             "computed_at": None,
         }
         
-    total = analytics.total_applications
-    interviews = analytics.interview_count
-    offers = analytics.offer_count
-    rejections = analytics.rejected_count
-    
-    response_rate = ((interviews + offers + rejections) / total) * 100 if total > 0 else 0.0
+    response_rate = analytics.response_rate if analytics.response_rate is not None else 0.0
         
     return {
         "total_applications": analytics.total_applications,
@@ -64,7 +59,7 @@ async def get_analytics(
         "pending_count": analytics.pending_count,
         "interview_rate": analytics.interview_rate,
         "offer_rate": analytics.offer_rate,
-        "response_rate": round(response_rate, 2),
+        "response_rate": response_rate,
         "monthly_data": analytics.monthly_data or [],
         "computed_at": analytics.computed_at.isoformat() if analytics.computed_at else None,
     }

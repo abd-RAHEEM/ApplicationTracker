@@ -28,6 +28,15 @@ async def database_health(session: AsyncSession = Depends(get_async_session)) ->
 @router.get("/db-debug", status_code=status.HTTP_200_OK)
 async def database_debug(session: AsyncSession = Depends(get_async_session)) -> Dict[str, Any]:
     """Temporary debugging endpoint to inspect database tables and run migrations programmatically."""
+    from app.config import settings
+    from fastapi import HTTPException
+    
+    if not settings.debug:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Debugging endpoints are disabled in production/non-debug mode."
+        )
+
     import os
     import traceback
     

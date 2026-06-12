@@ -3,31 +3,36 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, History, ArrowRight } from "lucide-react";
-import { useAuthStore } from "@/store/auth-store";
 import { useGmail } from "@/hooks/useGmail";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
+import { useAuth } from "@/hooks/useAuth";
+
 
 type RangeOption = "1_month" | "6_months" | "1_year" | "all";
 
 export default function ImportConfigPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, isLoading: authLoading } = useAuth();
   const { completeOnboarding, isLoading, error } = useGmail();
   const [selectedRange, setSelectedRange] = useState<RangeOption>("6_months");
 
   useEffect(() => {
     // Auth guards
-    if (!user) return;
+    if (authLoading) return;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
     if (!user.gmail_connected) {
       router.push("/onboarding/connect-gmail");
     } else if (user.is_onboarding_completed) {
-      router.push("/dashboard");
+      window.location.href = "/dashboard";
     }
-  }, [user, router]);
+  }, [user, authLoading, router]);
 
   const handleComplete = async () => {
     const today = new Date();
@@ -57,11 +62,21 @@ export default function ImportConfigPage() {
 
     try {
       await completeOnboarding(selectedRange, importFromDate.toISOString());
-      router.push("/dashboard");
+      window.location.href = "/dashboard";
     } catch (err) {
       // Error is handled in the hook
     }
   };
+
+  if (authLoading) {
+    return (
+      <Card className="shadow-lg border-0 bg-white/50 backdrop-blur-sm">
+        <CardContent className="flex justify-center py-12">
+          <Spinner size="lg" />
+        </CardContent>
+      </Card>
+    );
+  }
 
 
   const OptionCard = ({ id, title, desc, icon: Icon }: { id: RangeOption, title: string, desc: string, icon: any }) => (

@@ -27,7 +27,7 @@ def test_domain_mapping():
     
     # Normal domain
     company, conf = extract_company_from_sender("Recruiting <careers@stripe.com>")
-    assert company == "stripe"
+    assert company == "Stripe"
     assert conf == 0.9
     
 def test_status_classification():

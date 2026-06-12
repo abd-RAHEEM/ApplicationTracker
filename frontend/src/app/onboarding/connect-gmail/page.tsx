@@ -27,11 +27,15 @@ export default function ConnectGmailPage() {
     if (gmailParam === "connected") {
       // OAuth succeeded — refresh user data and proceed
       setJustConnected(true);
-      queryClient.invalidateQueries({ queryKey: ["me"] });
-      // Short delay to allow /users/me refetch to complete
-      setTimeout(() => {
-        router.push("/onboarding/import-config");
-      }, 1500);
+      (async () => {
+        try {
+          await queryClient.refetchQueries({ queryKey: ["me"] });
+        } catch (err) {
+          console.error("Failed to refetch user status:", err);
+        } finally {
+          router.push("/onboarding/import-config");
+        }
+      })();
     } else if (errorParam) {
       const errorMessages: Record<string, string> = {
         access_denied: "You denied Gmail access. Please grant permission to continue.",
