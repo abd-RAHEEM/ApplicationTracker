@@ -20,7 +20,9 @@ _raw_redis_client = aioredis.from_url(
     retry_on_timeout=True,         # Auto-reconnect and retry once on timeout/connection drops
     socket_timeout=5.0,            # Bounded socket timeout to prevent blocking FastAPI indefinitely
     socket_connect_timeout=5.0,    # Connect timeout
-    socket_keepalive=True          # TCP keepalive probes
+    socket_keepalive=True,          # TCP keepalive probes
+    ssl_cert_reqs="none",          # Disable SSL verification to match Celery and prevent drops on Upstash
+    max_connections=10             # Limit pool size to prevent exceeding Upstash free connection limits
 )
 
 class ResilientRedis:
