@@ -45,7 +45,7 @@ export function useAuth() {
   // ── Hydrate & Revalidate user on mount ───────────────────────────────────────
   // Note: We always call /users/me (not just when !user) to ensure stale cached
   // data from localStorage is caught immediately if the backend session is gone.
-  const { data: fetchedUser, error: fetchMeError, isSuccess, isError, isLoading: isFetchingMe } = useQuery({
+  const { data: fetchedUser, error: fetchMeError, isSuccess, isError, isPending: isFetchingMe } = useQuery({
     queryKey: ["me"],
     queryFn: () => apiGet<UserRead>("/users/me"),
     enabled: !isOnAuthPage,           // Skip on auth pages — no session exists
@@ -85,37 +85,29 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: (data: LoginRequest) =>
       apiClient.post<{ data: LoginResponse }>("/auth/login", data),
-    onSuccess: async (response) => {
+    onSuccess: (response) => {
       const loginData = response.data.data;
 
       // Set the frontend session cookie immediately so middleware can detect auth.
       // 30 days = 2592000 seconds, matching refresh token lifetime.
       document.cookie = "session_active=1; path=/; max-age=2592000; SameSite=Lax";
 
-      // Always fetch fresh user data from /users/me — don't trust loginData.user
-      // for routing since it may be from a cached or partial response.
-      let freshUser: UserRead;
-      try {
-        freshUser = await apiGet<UserRead>("/users/me");
-        setUser(freshUser);
-        queryClient.setQueryData(["me"], freshUser);
-      } catch {
-        // Fallback to loginData if /users/me fails (e.g., race condition)
-        freshUser = {
-          id: loginData.user.id,
-          username: loginData.user.username,
-          full_name: loginData.user.full_name,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          gmail_connected: loginData.user.gmail_connected,
-          gmail_email: null,
-          initial_import_done: loginData.user.initial_import_done,
-          is_email_verified: true,
-          is_onboarding_completed: loginData.user.gmail_connected && loginData.user.initial_import_done,
-        };
-        setUser(freshUser);
-      }
+      // Trust loginData.user directly to avoid a redundant /users/me API request
+      const freshUser: UserRead = {
+        id: loginData.user.id,
+        username: loginData.user.username,
+        full_name: loginData.user.full_name,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        gmail_connected: loginData.user.gmail_connected,
+        gmail_email: null,
+        initial_import_done: loginData.user.initial_import_done,
+        is_email_verified: true,
+        is_onboarding_completed: loginData.user.gmail_connected && loginData.user.initial_import_done,
+      };
+      setUser(freshUser);
+      queryClient.setQueryData(["me"], freshUser);
 
       // Route based on FRESH user onboarding state
       let redirectPath: string;
@@ -143,7 +135,7 @@ export function useAuth() {
       // This ensures the middleware re-evaluates the session_active cookie we just set.
       setTimeout(() => {
         window.location.href = redirectPath;
-      }, 500);
+      }, 100);
     },
     onError: (error: unknown) => {
       const apiError = getApiError(error);

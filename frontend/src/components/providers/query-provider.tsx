@@ -18,8 +18,8 @@ export function QueryClientProviderWrapper({
             staleTime: 60 * 1000,       // 1 minute — cache is fresh
             gcTime: 5 * 60 * 1000,      // 5 minutes — keep in memory
             retry: (failureCount, error: any) => {
-              // Don't retry 401/403 — these are auth issues
-              if ([401, 403].includes(error?.response?.status)) return false;
+              // Don't retry 401/403/429 — these are auth/rate-limiting issues
+              if ([401, 403, 429].includes(error?.response?.status)) return false;
               return failureCount < 2;
             },
             refetchOnWindowFocus: false, // Disable aggressive refetching

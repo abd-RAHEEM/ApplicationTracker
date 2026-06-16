@@ -13,6 +13,8 @@ import axios, {
   AxiosResponse,
   InternalAxiosRequestConfig,
 } from "axios";
+import { toast } from "sonner";
+
 
 const rawUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
 const absoluteUrl = rawUrl.endsWith("/v1") || rawUrl.endsWith("/v1/")
@@ -57,12 +59,13 @@ apiClient.interceptors.response.use(
       _retry?: boolean;
     };
 
-    // If 401 and not already retried and not a refresh/login request
+    // If 401 and not already retried and not a refresh/login/register request
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes("/auth/refresh") &&
-      !originalRequest.url?.includes("/auth/login")
+      !originalRequest.url?.includes("auth/refresh") &&
+      !originalRequest.url?.includes("auth/login") &&
+      !originalRequest.url?.includes("auth/register")
     ) {
       if (isRefreshing) {
         // Queue this request until refresh completes
@@ -78,8 +81,18 @@ apiClient.interceptors.response.use(
         await apiClient.post("/auth/refresh");
         processPendingRequests(null);
         return apiClient(originalRequest);
-      } catch (refreshError) {
+      } catch (refreshError: any) {
         processPendingRequests(refreshError as Error);
+
+        // If the refresh call itself failed with 429 (Too Many Requests),
+        // we do NOT redirect to login and do NOT retry.
+        if (refreshError?.response?.status === 429) {
+          if (typeof window !== "undefined") {
+            toast.error("Too many requests, please wait a moment and try again.");
+          }
+          return Promise.reject(refreshError);
+        }
+
         // Only redirect to login if we are NOT already on an auth page.
         // Redirecting unconditionally causes an infinite reload loop:
         // auth page mounts → useQuery(["me"]) → 401 → refresh → 401 → redirect to /login → repeat.

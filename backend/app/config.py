@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     - Type coercion and validation at startup (fail fast).
     - Single source of truth — no scattered os.getenv() calls.
     - IDE auto-complete and mypy compatibility.
+
+    Note on local development:
+    - In local development (with React Strict Mode enabled), effects are run twice on mount,
+      which can cause rapid successive requests to hit rate limits.
+      To prevent this, override rate limits in .env or the shell environment:
+      RATE_LIMIT_LOGIN="200/minute"
+      RATE_LIMIT_REGISTER="100/minute"
     """
 
     model_config = SettingsConfigDict(
