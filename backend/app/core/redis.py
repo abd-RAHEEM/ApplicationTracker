@@ -2,14 +2,20 @@
 from __future__ import annotations
 
 import redis.asyncio as aioredis
+from redis.asyncio.retry import Retry
+from redis.backoff import ExponentialBackoff
 
 from app.config import settings
+
+# Configure retry logic for resilient connection management (especially for serverless Redis like Upstash)
+redis_retry = Retry(ExponentialBackoff(), 3)
 
 # Global redis connection pool
 redis_client = aioredis.from_url(
     settings.redis_url, 
     encoding="utf-8", 
     decode_responses=True,
+    retry=redis_retry,
     health_check_interval=30,      # Prevents idle connection drops on serverless Redis (e.g. Upstash)
     retry_on_timeout=True,         # Auto-reconnect and retry once on timeout/connection drops
     socket_timeout=5.0,            # Bounded socket timeout to prevent blocking FastAPI indefinitely
