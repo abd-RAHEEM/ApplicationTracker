@@ -49,7 +49,12 @@ class ResilientRedis:
                         for attempt in range(retries):
                             try:
                                 return await current_res
-                            except (ConnectionError, TimeoutError):
+                            except (ConnectionError, TimeoutError) as e:
+                                import logging
+                                logging.getLogger("app.redis").warning(
+                                    f"ResilientRedis connection failed (attempt {attempt+1}/{retries}): {e}",
+                                    exc_info=True
+                                )
                                 if attempt == retries - 1:
                                     raise
                                 # Close/disconnect to rebuild connection
