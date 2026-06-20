@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "jobtracker-backend"
 version = "0.1.0"
-description = "AI-Powered Job Application Tracking SaaS — Backend API"
+description = "AI-Powered Application Tracker — Backend API"
 requires-python = ">=3.11,<4.0"
 license = { text = "MIT" }
 
