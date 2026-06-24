@@ -50,6 +50,7 @@ export interface UserAuthResponse {
   full_name: string;
   gmail_connected: boolean;
   initial_import_done: boolean;
+  is_onboarding_completed: boolean;
 }
 
 export interface LoginResponse {

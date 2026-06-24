@@ -51,23 +51,21 @@ def _set_auth_cookies(
     access_token: str,
     refresh_token: str,
 ) -> None:
-    """Set HttpOnly, Secure, SameSite=None cookies for both tokens.
+    """Set HttpOnly, Secure, SameSite cookies for both tokens.
 
-    SameSite=None is required because the frontend and backend are served from
-    different origins (cross-site). SameSite=Strict would silently block cookies
-    on all cross-origin requests. SameSite=None requires Secure=True (HTTPS),
-    which is enforced by settings.cookie_secure in production.
+    SameSite is set dynamically based on environment ('none' in production, 'lax' in development).
+    SameSite=None requires Secure=True (HTTPS), which is enforced by settings.cookie_secure in production.
     """
     cookie_kwargs = {
         "httponly": True,
         "secure": settings.cookie_secure,  # Must be True in production (HTTPS required for SameSite=None)
-        "samesite": "none",                # Cross-origin: frontend and backend on different domains
+        "samesite": settings.cookie_samesite, # Dynamic: 'none' in production, 'lax' in development
         "path": "/",
     }
     response.set_cookie(
         key="access_token",
         value=access_token,
-        max_age=settings.access_token_expire_seconds,
+        max_age=settings.refresh_token_expire_seconds, # Match refresh token lifetime so browser keeps expired token for refresh
         **cookie_kwargs,
     )
     response.set_cookie(
@@ -78,10 +76,29 @@ def _set_auth_cookies(
     )
 
 
-def _clear_auth_cookies(response: Response) -> None:
-    """Remove auth cookies on logout."""
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/")
+def clear_auth_cookies(response: Response) -> None:
+    """Remove auth cookies on logout.
+
+    IMPORTANT: The deletion Set-Cookie header must carry the same SameSite,
+    Secure, HttpOnly, and Path attributes as the original cookie.  Browsers
+    (Chrome ≥ 80, Firefox) silently ignore deletions where these attributes
+    do not match, leaving the HttpOnly cookies alive after logout.
+    """
+    response.delete_cookie(
+        "access_token",
+        path="/",
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+    )
+    response.delete_cookie(
+        "refresh_token",
+        path="/",
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+    )
+
 
 
 def _get_client_ip(request: Request) -> str | None:
@@ -181,7 +198,7 @@ async def logout(
     Even if the access token has expired, the refresh flow should be used first.
     """
     await auth_service.logout_user(session=session, session_id=session_id)
-    _clear_auth_cookies(response)
+    clear_auth_cookies(response)
     return SuccessResponse(data=MessageResponse(message="Logged out successfully"))
 
 

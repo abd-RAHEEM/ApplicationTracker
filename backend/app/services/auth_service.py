@@ -189,6 +189,7 @@ class AuthService:
             full_name=user.full_name,
             gmail_connected=gmail_connected,
             initial_import_done=initial_import_done,
+            is_onboarding_completed=user.is_onboarding_completed,
         )
 
         # Trigger non-blocking sync if user is fully onboarded
@@ -450,7 +451,7 @@ class AuthService:
             raise BadRequestException(message="User not found")
 
         # Verify password
-        if not security.verify_password(password, user.hashed_password):
+        if not verify_password(password, user.hashed_password):
             raise BadRequestException(message="Incorrect password")
 
         # Permanent deletion

@@ -143,6 +143,15 @@ class Settings(BaseSettings):
         """
         return self.is_production
 
+    @property
+    def cookie_samesite(self) -> Literal["none", "lax"]:
+        """
+        SameSite attribute for cookies.
+        'none' in production (requires cross-site access over HTTPS),
+        'lax' in development and staging.
+        """
+        return "none" if self.is_production else "lax"
+
     # ── Validators ─────────────────────────────────────────────────────────────
     @field_validator("allowed_origins_raw", mode="before")
     @classmethod

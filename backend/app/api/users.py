@@ -27,6 +27,7 @@ from app.schemas.user import (
     UserUpdateRequest,
 )
 from app.services.auth_service import auth_service
+from app.api.auth import clear_auth_cookies
 
 logger = structlog.get_logger(__name__)
 
@@ -123,8 +124,7 @@ async def change_password(
     )
 
     # Clear cookies — force re-login
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/")
+    clear_auth_cookies(response)
 
     return SuccessResponse(
         data={},
@@ -157,8 +157,7 @@ async def delete_account(
         password=body.password,
     )
 
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/")
+    clear_auth_cookies(response)
 
     return SuccessResponse(
         data={},

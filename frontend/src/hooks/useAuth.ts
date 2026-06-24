@@ -104,7 +104,10 @@ export function useAuth() {
         gmail_email: null,
         initial_import_done: loginData.user.initial_import_done,
         is_email_verified: true,
-        is_onboarding_completed: loginData.user.gmail_connected && loginData.user.initial_import_done,
+        // Use the authoritative flag from users.is_onboarding_completed (server-supplied).
+        // Do NOT compute this client-side from gmail_connected && initial_import_done —
+        // those come from a different table (gmail_connections) and can diverge.
+        is_onboarding_completed: loginData.user.is_onboarding_completed,
       };
       setUser(freshUser);
       queryClient.setQueryData(["me"], freshUser);

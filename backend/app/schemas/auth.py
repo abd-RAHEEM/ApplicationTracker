@@ -152,6 +152,7 @@ class UserAuthResponse(AppBaseModel):
     full_name: str
     gmail_connected: bool = False
     initial_import_done: bool = False
+    is_onboarding_completed: bool = False
 
 
 class LoginResponse(AppBaseModel):
