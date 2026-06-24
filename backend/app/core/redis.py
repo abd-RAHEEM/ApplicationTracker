@@ -25,6 +25,13 @@ redis_kwargs = {
 
 if settings.redis_url.startswith("rediss://"):
     redis_kwargs["ssl_cert_reqs"] = "none"   # Disable SSL verification to match Celery and prevent drops on Upstash
+elif settings.is_production:
+    import structlog
+    structlog.get_logger(__name__).warning(
+        "redis_ssl_disabled_in_production",
+        redis_url=settings.redis_url,
+        message="Redis connection URL does not use SSL (rediss://). Render's managed Redis requires SSL/TLS in production.",
+    )
 
 _raw_redis_client = aioredis.from_url(settings.redis_url, **redis_kwargs)
 

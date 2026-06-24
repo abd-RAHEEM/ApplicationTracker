@@ -133,7 +133,14 @@ async def oauth_callback(
             "state": state,
             "error": error
         }
-        await redis_client.set(redis_key, json.dumps(payload), ex=60) # 60 seconds TTL
+        try:
+            await redis_client.set(redis_key, json.dumps(payload), ex=60) # 60 seconds TTL
+        except Exception as exc:
+            logger.error("gmail_oauth_callback_redis_error", error=str(exc))
+            return RedirectResponse(
+                url=f"{frontend_url}/onboarding/connect-gmail?error=redis_unavailable",
+                status_code=302,
+            )
 
         logger.info("gmail_oauth_callback_redirecting_to_proxy_with_nonce")
         proxy_url = f"{frontend_url}/api/v1/gmail/callback?nonce={oauth_nonce}&proxied=true"
