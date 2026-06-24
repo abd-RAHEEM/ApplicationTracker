@@ -46,12 +46,10 @@ class RegisterRequest(AppBaseModel):
         examples=["janedoe"],
     )
     password: str = Field(
-        min_length=8,
         max_length=128,
         description="Strong password (uppercase, lowercase, digit, special char)",
     )
     confirm_password: str = Field(
-        min_length=8,
         max_length=128,
         description="Must match password exactly",
     )

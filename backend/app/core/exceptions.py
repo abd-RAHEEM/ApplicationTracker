@@ -212,7 +212,10 @@ def register_exception_handlers(app: FastAPI) -> None:
         field_errors: dict[str, list[str]] = {}
         for error in exc.errors():
             field = ".".join(str(loc) for loc in error["loc"] if loc != "body")
-            field_errors.setdefault(field, []).append(error["msg"])
+            msg = error["msg"]
+            if msg.startswith("Value error, "):
+                msg = msg[len("Value error, "):]
+            field_errors.setdefault(field, []).append(msg)
 
         logger.info(
             "validation_error",
