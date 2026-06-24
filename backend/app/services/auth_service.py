@@ -31,6 +31,7 @@ from app.core.exceptions import (
     SessionRevokedException,
     UsernameTakenException,
 )
+from app.core import security
 from app.core.security import (
     create_access_token,
     create_password_reset_token,
@@ -451,7 +452,7 @@ class AuthService:
             raise BadRequestException(message="User not found")
 
         # Verify password
-        if not verify_password(password, user.hashed_password):
+        if not security.verify_password(password, user.hashed_password):
             raise BadRequestException(message="Incorrect password")
 
         # Permanent deletion
