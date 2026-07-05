@@ -103,16 +103,16 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
 
     # ── Rate Limiting ──────────────────────────────────────────────────────────
-    # These are defaults. Override in .env or Render env vars as needed.
-    # Login/Register are set higher to prevent React Strict Mode double-invoke from
-    # burning the budget on first page load.
-    # In a real brute-force scenario, the bcrypt cost (12 rounds, ~300ms/hash) is the
-    # primary throttle — rate limiting is a secondary defense layer.
-    rate_limit_login: str = "20/minute"
-    rate_limit_register: str = "10/minute"
-    rate_limit_password_reset: str = "5/minute"
-    rate_limit_sync: str = "5/minute"
-    rate_limit_refresh: str = "60/minute"  # Refresh is silent/automatic, needs headroom
+    # Defaults are intentionally permissive because:
+    # 1. On hosted platforms (Render, Railway) the reverse proxy means all users
+    #    share the same resolved IP — too-low limits block legitimate logins.
+    # 2. bcrypt (cost 12, ~300 ms/hash) is the real brute-force throttle.
+    # Override per-env via RATE_LIMIT_LOGIN, RATE_LIMIT_REGISTER, etc. env vars.
+    rate_limit_login: str = "100/minute"
+    rate_limit_register: str = "30/minute"
+    rate_limit_password_reset: str = "10/minute"
+    rate_limit_sync: str = "20/minute"
+    rate_limit_refresh: str = "120/minute"  # Refresh is silent/automatic, needs headroom
 
     # ── Password Reset ─────────────────────────────────────────────────────────
     password_reset_token_expire_minutes: int = Field(default=15, ge=5, le=60)

@@ -62,10 +62,21 @@ async def run_sync_for_user(user_id: UUID, task_id: str | None = None) -> None:
         log = await sync_log_repository.start_sync(session, user_id, sync_type, task_id)
         log_id = log.id
 
-        after_date = conn.last_successful_sync_at or conn.initial_import_from
+        # For the initial import, ALWAYS use the user-configured import_from date
+        # (the "last 6 months" window they chose at onboarding).
+        # For incremental syncs, pick up from the last successful sync timestamp.
+        # This prevents the common bug where a failed/partial initial import then
+        # uses today's date on retry — missing all historical emails.
+        if sync_type == SyncType.INITIAL_IMPORT:
+            after_date = conn.initial_import_from
+        else:
+            after_date = conn.last_successful_sync_at or conn.initial_import_from
+
         if not after_date:
-            # Fallback to an arbitrary date if somehow missing
-            after_date = datetime(2024, 1, 1, tzinfo=timezone.utc)
+            # Fallback: 6 months ago if somehow initial_import_from is missing
+            from datetime import timedelta
+            after_date = datetime.now(timezone.utc) - timedelta(days=180)
+            logger.warning("sync_missing_import_from_fallback", user_id=str(user_id))
             
         client = GmailClient(conn.encrypted_refresh_token)
         

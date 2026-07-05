@@ -119,3 +119,37 @@ def purge_expired_bin_records(self) -> None:
     except Exception as e:
         logger.exception("celery_task_failed", task="purge_expired_bin_records")
         raise self.retry(exc=e, countdown=60)
+
+
+@celery_app.task(bind=True, max_retries=3)
+def reparse_emails_task(self, user_id_str: str) -> None:
+    """
+    Background task to re-run the parser on all unparsed emails for a user.
+    Used after parser logic improvements — does NOT re-fetch emails from Gmail.
+    """
+    logger.info("celery_task_started", task="reparse_emails", user_id=user_id_str)
+
+    import asyncio
+    from uuid import UUID
+    from app.db.session import async_session_maker
+    from app.services.parser_service import parser_service
+    from app.core.redis import publish_sse_event
+    import json
+
+    async def _run():
+        async with async_session_maker() as session:
+            user_id = UUID(user_id_str)
+            await publish_sse_event(user_id_str, json.dumps({"event": "parsing_started"}))
+            await parser_service.process_unparsed_emails(session, user_id)
+            await publish_sse_event(user_id_str, json.dumps({"event": "parsing_completed"}))
+
+            # Regenerate analytics after re-parse
+            from app.services.analytics_service import analytics_service
+            await analytics_service.compute_analytics_for_user(session=session, user_id=user_id)
+
+    try:
+        asyncio.run(_run())
+        logger.info("celery_task_completed", task="reparse_emails", user_id=user_id_str)
+    except Exception as e:
+        logger.exception("celery_task_failed", task="reparse_emails", user_id=user_id_str)
+        raise self.retry(exc=e, countdown=30)

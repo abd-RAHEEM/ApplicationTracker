@@ -25,6 +25,26 @@ COMPANY_NAME_MAP = {
     "coinbase": "Coinbase",
     "atlassian": "Atlassian",
     "bytedance": "ByteDance",
+    "shopify": "Shopify",
+    "twilio": "Twilio",
+    "databricks": "Databricks",
+    "snowflake": "Snowflake",
+    "palantir": "Palantir",
+    "figma": "Figma",
+    "notion": "Notion",
+    "discord": "Discord",
+    "slack": "Slack",
+    "zoom": "Zoom",
+    "robinhood": "Robinhood",
+    "doordash": "DoorDash",
+    "lyft": "Lyft",
+    "pinterest": "Pinterest",
+    "dropbox": "Dropbox",
+    "square": "Square",
+    "block": "Block",
+    "reddit": "Reddit",
+    "twitter": "Twitter",
+    "x": "X (Twitter)",
 }
 
 
@@ -38,8 +58,12 @@ def extract_company_from_sender(sender: str | None) -> tuple[str | None, float]:
 
     # Look for generic ATS domains to ignore for company mapping
     ats_domains = [
-        "greenhouse.io", "workday.com", "lever.co", "myworkday.com", 
-        "breezy.hr", "icims.com", "ashbyhq.com", "smartrecruiters.com"
+        "greenhouse.io", "workday.com", "lever.co", "myworkday.com",
+        "breezy.hr", "icims.com", "ashbyhq.com", "smartrecruiters.com",
+        "taleo.net", "successfactors.com", "jobvite.com", "recruitee.com",
+        "comeet.co", "pinpoint.com", "rippling.com", "bamboohr.com",
+        "workable.com", "jazz.co", "jazzhr.com", "hiringplatform.com",
+        "applytojob.com", "zohorecruit.com", "oraclecloud.com",
     ]
     
     # Try to parse "Company Name <email@domain.com>"

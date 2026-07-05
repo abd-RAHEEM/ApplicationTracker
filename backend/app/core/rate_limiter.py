@@ -9,6 +9,17 @@ Rationale for rate limiting on auth endpoints:
 - Register: prevents spam account creation.
 - Password reset: prevents email flooding / enumeration via timing.
 - Sync: prevents accidental or malicious Gmail API quota exhaustion.
+
+⚠️  Proxy-aware IP resolution:
+On hosted platforms (Render, Railway, Fly.io) the app sits behind a reverse
+proxy.  SlowAPI's default get_remote_address() returns the proxy's IP, which
+causes ALL users to share the same rate-limit bucket — a single user can lock
+out everyone.
+
+Our _get_key() resolves the real client IP from X-Forwarded-For when present,
+but only trusts the first (leftmost) hop which is the genuine client IP as set
+by the load balancer.  Direct access without a proxy falls back to
+request.client.host.
 """
 from __future__ import annotations
 
@@ -21,10 +32,12 @@ from app.config import settings
 
 def _get_key(request) -> str:  # type: ignore[no-untyped-def]
     """
-    Rate limit key function.
+    Rate limit key function — resolves the real client IP.
 
-    Falls back to IP address if user is not authenticated.
-    Resolves X-Forwarded-For for reverse proxy environments.
+    Priority:
+    1. X-Forwarded-For leftmost entry (set by load balancer / CDN)
+    2. X-Real-IP header (Nginx convention)
+    3. request.client.host (direct connection)
     """
     import structlog
     dbg_logger = structlog.get_logger("app.rate_limiter")
@@ -33,21 +46,23 @@ def _get_key(request) -> str:  # type: ignore[no-untyped-def]
     real_ip = request.headers.get("x-real-ip")
     client_host = request.client.host if request.client else None
 
-    resolved_ip = None
+    resolved_ip: str | None = None
     if forwarded_for:
+        # X-Forwarded-For can be a comma-separated list: "client, proxy1, proxy2"
+        # The leftmost entry is the original client IP as set by the outermost proxy.
         resolved_ip = forwarded_for.split(",")[0].strip()
     elif real_ip:
         resolved_ip = real_ip.strip()
     else:
         resolved_ip = client_host
 
-    dbg_logger.info(
+    dbg_logger.debug(
         "rate_limit_key_resolved",
         path=request.url.path,
         x_forwarded_for=forwarded_for,
         x_real_ip=real_ip,
         client_host=client_host,
-        resolved_ip=resolved_ip
+        resolved_ip=resolved_ip,
     )
     return resolved_ip or "unknown"
 

@@ -6,35 +6,56 @@ import re
 
 def is_job_related(subject: str | None, sender: str | None, snippet: str | None) -> bool:
     """
-    Analyzes metadata and snippet to quickly filter out obvious non-job emails.
+    Quickly filters out obvious non-job emails using subject, sender, and snippet.
+
+    Strategy: err on the side of inclusion — it is cheaper to fetch the full body
+    of a false-positive and discard it in the parser than to silently drop a real
+    job email at this stage.  Only hard-spam signals trigger early rejection.
     """
-    subject = (subject or "").lower()
-    sender = (sender or "").lower()
-    snippet = (snippet or "").lower()
-    
-    combined_text = f"{subject} {snippet}"
-    
-    # Common job application keywords
-    job_keywords = [
-        "application", "apply", "candidate", "interview", "assessment", 
-        "offer", "resume", "portfolio", "moving forward", "next steps",
-        "unfortunately", "hackerrank", "coderbyte", "talent", "recruiter",
-        "careers", "jobs"
+    subject_str = (subject or "").lower()
+    sender_str  = (sender  or "").lower()
+    snippet_str = (snippet or "").lower()
+    combined    = f"{subject_str} {snippet_str}"
+
+    # ── Always pass ATS / recruiting senders ────────────────────────────────
+    ats_sender_signals = [
+        "careers@", "recruiting@", "talent@", "ats@", "noreply@",
+        "no-reply@", "jobs@", "greenhouse.io", "lever.co", "workday.com",
+        "myworkday.com", "icims.com", "smartrecruiters.com", "ashbyhq.com",
+        "taleo.net", "successfactors.com", "jobvite.com", "breezy.hr",
+        "recruitee.com", "comeet.co",
     ]
-    
-    # Common non-job keywords
-    spam_keywords = [
-        "newsletter", "promotions", "sale", "discount", "order", "receipt",
-        "shipping", "invoice", "payment", "subscription"
-    ]
-    
-    if any(k in sender for k in ["careers@", "jobs@", "talent@", "recruiting@", "ats@"]):
+    if any(sig in sender_str for sig in ats_sender_signals):
         return True
-        
-    job_score = sum(1 for k in job_keywords if re.search(rf"\b{re.escape(k)}\b", combined_text))
-    spam_score = sum(1 for k in spam_keywords if re.search(rf"\b{re.escape(k)}\b", combined_text))
-    
-    if spam_score > job_score:
+
+    # ── Hard-spam signals — definite non-job email ───────────────────────────
+    # Only exclude if there are spam signals AND zero job signals in combined text
+    spam_keywords = [
+        "newsletter", "promotions", "flash sale", "discount", "coupon",
+        "order confirmation", "shipping update", "invoice", "payment received",
+        "subscription renewal", "account statement", "bank statement",
+        "password reset", "verify your email", "confirm your email",
+        "unsubscribe", "opt out",
+    ]
+    spam_score = sum(1 for k in spam_keywords if k in combined)
+
+    # ── Job-relevance signals ────────────────────────────────────────────────
+    job_keywords = [
+        "application", "apply", "applied", "candidate", "interview", "assessment",
+        "offer", "resume", "cv", "portfolio", "moving forward", "next steps",
+        "unfortunately", "hackerrank", "coderbyte", "codesignal", "talent",
+        "recruiter", "careers", "job", "position", "role", "opportunity",
+        "hiring", "onboarding", "job offer", "offer letter", "phone screen",
+    ]
+    job_score = sum(1 for k in job_keywords if re.search(rf"\b{re.escape(k)}\b", combined))
+
+    # If there are any job signals, pass even if some spam signals are present
+    if job_score > 0:
+        return True
+
+    # No job signals + spam signals → reject
+    if spam_score > 0:
         return False
-        
+
+    # No clear signal either way: be permissive, let the parser decide
     return True

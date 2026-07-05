@@ -244,8 +244,10 @@ def register_exception_handlers(app: FastAPI) -> None:
         response = _error_response(
             status.HTTP_429_TOO_MANY_REQUESTS,
             "RATE_LIMIT_EXCEEDED",
-            "Too many requests — please try again later",
+            "Too many login attempts. Please wait a minute and try again.",
         )
+        # Inform clients (browsers, axios interceptors) how long to back off
+        response.headers["Retry-After"] = "60"
         return _add_cors_headers(request, response)
 
     @app.exception_handler(Exception)

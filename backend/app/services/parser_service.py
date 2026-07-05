@@ -148,7 +148,13 @@ class ParserService:
                                 body=body
                             )
                             
-                            if event and event.email_type == EmailType.APPLICATION_EVENT:
+                            # Accept APPLICATION_EVENT and catch-all OTHER (some real ATS emails
+                            # may not match the classifier patterns yet).  Explicitly drop
+                            # NEWSLETTER and JOB_ALERT which are never specific application events.
+                            if event and event.email_type not in (
+                                EmailType.NEWSLETTER,
+                                EmailType.JOB_ALERT,
+                            ):
                                 await application_service.process_normalized_event(session, user_id, event)
                         
                         email.is_parsed = True
