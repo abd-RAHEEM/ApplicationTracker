@@ -40,6 +40,8 @@ WORKDIR /app
 # Copy virtualenv from builder
 COPY --from=builder /app/.venv /app/.venv
 
+# Download spaCy model during build
+RUN python -m spacy download en_core_web_sm
 
 # Copy application code
 COPY . .

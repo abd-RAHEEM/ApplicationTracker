@@ -40,8 +40,9 @@ dependencies = [
     "aiosmtplib>=3.0.0",                # Async SMTP for password reset emails
 
     # ── NLP — Email Parsing ────────────────────────────────────────────────────
-    # NOTE: spaCy removed — replaced with lightweight regex NER to stay within
-    # 512 MB Render free-tier memory limit (spaCy model = ~150 MB per process).
+    # NOTE: Optimized to only load the NER pipeline component to stay within the
+    # 512 MB memory limit.
+    "spacy>=3.7.0",
     "python-dateutil>=2.9.0",           # Flexible date parsing
     "tldextract>=5.1.0",
 
