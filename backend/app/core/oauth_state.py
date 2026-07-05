@@ -73,3 +73,28 @@ def verify_oauth_state_token(token: str, expected_user_id: UUID) -> None:
     except JWTError as exc:
         logger.warning("oauth_state_invalid", error=str(exc))
         raise InvalidTokenException(message="Invalid or expired state token.") from exc
+
+
+def decode_and_verify_oauth_state_token(token: str) -> UUID:
+    """
+    Decode and verify the state JWT, returning the user_id if valid.
+    Raises InvalidTokenException on failure.
+    """
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+        )
+        
+        if payload.get("type") != "oauth_state":
+            raise InvalidTokenException(message="Invalid state token type.")
+            
+        token_user_id = payload.get("sub")
+        if not token_user_id:
+            raise InvalidTokenException(message="State token missing user subject.")
+        return UUID(token_user_id)
+            
+    except (JWTError, ValueError) as exc:
+        logger.warning("oauth_state_invalid", error=str(exc))
+        raise InvalidTokenException(message="Invalid or expired state token.") from exc

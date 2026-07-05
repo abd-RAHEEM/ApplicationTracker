@@ -114,6 +114,21 @@ async def oauth_callback(
     else:
         frontend_url = frontend_url.rstrip("/")
 
+    # State-based User Authentication Fallback:
+    # If the session cookie is missing/blocked (common in cross-site redirects),
+    # we authenticate the request using the signed, secure state JWT.
+    if not user and state:
+        try:
+            from app.core.oauth_state import decode_and_verify_oauth_state_token
+            from app.repositories.user_repository import user_repository
+            
+            user_id = decode_and_verify_oauth_state_token(state)
+            user = await user_repository.get_active_by_id(session, user_id)
+            if user:
+                logger.info("gmail_oauth_callback_authenticated_via_state", user_id=str(user.id))
+        except Exception as exc:
+            logger.warning("gmail_oauth_callback_state_auth_failed", error=str(exc))
+
     # If the user is unauthenticated (e.g. because Google redirected directly to the
     # backend domain, where cookies are blocked as cross-origin on Render subdomains),
     # we redirect the browser to the frontend proxy callback to retrieve cookies.

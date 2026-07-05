@@ -40,8 +40,10 @@ export default function ConnectGmailPage() {
       const errorMessages: Record<string, string> = {
         access_denied: "You denied Gmail access. Please grant permission to continue.",
         oauth_failed: "Gmail connection failed. Please try again.",
+        session_expired: "Your login session expired or could not be verified. Please try logging out and logging back in.",
+        redis_unavailable: "Temporary server error (database cache unavailable). Please try again in a few moments.",
       };
-      setPageError(errorMessages[errorParam] ?? "An error occurred. Please try again.");
+      setPageError(errorMessages[errorParam] ?? `An error occurred (${errorParam}). Please try again.`);
     }
   }, [searchParams, router, queryClient]);
 
