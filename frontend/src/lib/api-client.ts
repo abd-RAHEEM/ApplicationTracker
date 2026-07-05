@@ -112,6 +112,12 @@ apiClient.interceptors.response.use(
       }
     }
 
+    // Never attempt token refresh for 429 responses — just propagate the error.
+    // The caller (useAuth mutations) will handle 429 with a user-friendly toast.
+    if (error.response?.status === 429) {
+      return Promise.reject(error);
+    }
+
     return Promise.reject(error);
   }
 );
@@ -160,6 +166,7 @@ export interface ApiError {
 export function getApiError(error: unknown): ApiError {
   if (axios.isAxiosError(error)) {
     console.error("API Error details:", error);
+
     // Handle request timeout (e.g. Render cold start)
     if (error.code === "ECONNABORTED" || error.message.toLowerCase().includes("timeout")) {
       return {
@@ -167,6 +174,7 @@ export function getApiError(error: unknown): ApiError {
         message: "Server is starting up, please wait... (request timed out)",
       };
     }
+
     // Handle Network Error (server down or starting up)
     if (error.message === "Network Error") {
       return {
@@ -174,8 +182,49 @@ export function getApiError(error: unknown): ApiError {
         message: "Network error. The server might be down or starting up. Please try again.",
       };
     }
+
+    // 429 — Too Many Requests
+    if (error.response?.status === 429) {
+      return {
+        code: "RATE_LIMIT_EXCEEDED",
+        message: "Too many attempts. Please wait a moment and try again.",
+      };
+    }
+
+    // Structured backend error response
     if (error.response?.data?.error) {
-      return error.response.data.error as ApiError;
+      const backendError = error.response.data.error as ApiError;
+
+      // Map well-known error codes to friendly messages
+      switch (backendError.code) {
+        case "INVALID_CREDENTIALS":
+          return {
+            ...backendError,
+            message: "Incorrect username or password.",
+          };
+        case "USERNAME_TAKEN":
+          return {
+            ...backendError,
+            message: "That username is already taken. Please choose a different one.",
+          };
+        case "SESSION_REVOKED":
+          return {
+            ...backendError,
+            message: "Your session has expired. Please log in again.",
+          };
+        case "WEAK_PASSWORD":
+          return {
+            ...backendError,
+            message: backendError.message, // Already descriptive from backend
+          };
+        case "RATE_LIMIT_EXCEEDED":
+          return {
+            ...backendError,
+            message: "Too many attempts. Please wait a minute and try again.",
+          };
+        default:
+          return backendError;
+      }
     }
   }
   return {

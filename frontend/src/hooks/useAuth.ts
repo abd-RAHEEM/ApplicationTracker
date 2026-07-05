@@ -77,6 +77,16 @@ export function useAuth() {
     },
     onError: (error: unknown) => {
       const apiError = getApiError(error);
+      // 429 — rate limited (too many signup attempts)
+      if ((error as any)?.response?.status === 429) {
+        toast.error("Too many signup attempts. Please wait a minute and try again.");
+        return;
+      }
+      // 409 — username already taken
+      if (apiError.code === "USERNAME_TAKEN") {
+        toast.error("That username is already taken. Please choose a different one.");
+        return;
+      }
       toast.error(apiError.message);
     },
   });
@@ -142,6 +152,16 @@ export function useAuth() {
     },
     onError: (error: unknown) => {
       const apiError = getApiError(error);
+      // 429 — rate limited (too many login attempts)
+      if ((error as any)?.response?.status === 429) {
+        toast.error("Too many login attempts. Please wait a minute and try again.");
+        return;
+      }
+      // 401 INVALID_CREDENTIALS — wrong username or password
+      if (apiError.code === "INVALID_CREDENTIALS") {
+        toast.error("Incorrect username or password. Please check and try again.");
+        return;
+      }
       toast.error(apiError.message);
     },
   });

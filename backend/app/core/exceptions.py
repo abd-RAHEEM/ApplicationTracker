@@ -200,9 +200,13 @@ def register_exception_handlers(app: FastAPI) -> None:
             message=exc.message,
             path=request.url.path,
         )
-        return _error_response(
+        response = _error_response(
             exc.status_code, exc.error_code, exc.message, exc.details
         )
+        # AppException handler also sits above CORSMiddleware in the stack,
+        # so we must manually attach CORS headers here too — otherwise the
+        # browser sees 401/409/422 responses as opaque CORS errors.
+        return _add_cors_headers(request, response)
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(

@@ -103,10 +103,16 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
 
     # ── Rate Limiting ──────────────────────────────────────────────────────────
-    rate_limit_login: str = "30/minute"
-    rate_limit_register: str = "15/minute"
-    rate_limit_password_reset: str = "15/minute"
+    # These are defaults. Override in .env or Render env vars as needed.
+    # Login/Register are set higher to prevent React Strict Mode double-invoke from
+    # burning the budget on first page load.
+    # In a real brute-force scenario, the bcrypt cost (12 rounds, ~300ms/hash) is the
+    # primary throttle — rate limiting is a secondary defense layer.
+    rate_limit_login: str = "20/minute"
+    rate_limit_register: str = "10/minute"
+    rate_limit_password_reset: str = "5/minute"
     rate_limit_sync: str = "5/minute"
+    rate_limit_refresh: str = "60/minute"  # Refresh is silent/automatic, needs headroom
 
     # ── Password Reset ─────────────────────────────────────────────────────────
     password_reset_token_expire_minutes: int = Field(default=15, ge=5, le=60)

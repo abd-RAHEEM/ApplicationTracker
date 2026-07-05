@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.rate_limiter import (
     LOGIN_RATE_LIMIT,
     PASSWORD_RESET_RATE_LIMIT,
+    REFRESH_RATE_LIMIT,
     REGISTER_RATE_LIMIT,
     limiter,
 )
@@ -209,6 +210,7 @@ async def logout(
     status_code=status.HTTP_200_OK,
     summary="Refresh access token using refresh token cookie",
 )
+@limiter.limit(REFRESH_RATE_LIMIT)
 async def refresh_token(
     request: Request,
     response: Response,

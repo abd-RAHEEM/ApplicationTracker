@@ -63,3 +63,4 @@ LOGIN_RATE_LIMIT: str = settings.rate_limit_login
 REGISTER_RATE_LIMIT: str = settings.rate_limit_register
 PASSWORD_RESET_RATE_LIMIT: str = settings.rate_limit_password_reset
 SYNC_RATE_LIMIT: str = settings.rate_limit_sync
+REFRESH_RATE_LIMIT: str = settings.rate_limit_refresh
