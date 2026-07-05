@@ -8,15 +8,24 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 echo "==> Starting from directory: $(pwd)"
 
-# Start Celery worker in the background
-poetry run celery -A app.worker.celery_app worker --loglevel=info -B &
+# ── Celery Worker ─────────────────────────────────────────────────────────────
+# Concurrency is capped at 2 to stay within the 512 MB Render free-tier RAM.
+# Each prefork worker is a separate process; too many workers = OOM.
+# -B runs celery-beat (scheduler) inside the same process to save one more
+# process slot.
+# --max-tasks-per-child prevents long-running worker processes from leaking
+# memory over time.
+poetry run celery -A app.worker.celery_app worker \
+    --loglevel=info \
+    -B \
+    --concurrency=2 \
+    --max-tasks-per-child=50 &
 
-# Run database migrations
-# Use -c to explicitly name the config file — removes any ambiguity about
-# which alembic.ini alembic picks up from the search path.
+# ── Database Migrations ───────────────────────────────────────────────────────
 echo "==> Running Alembic migrations..."
 poetry run alembic -c alembic.ini upgrade head || echo "==> WARNING: Alembic migrations failed!"
 echo "==> Migrations complete."
 
-# Start the FastAPI server
+# ── FastAPI Server ────────────────────────────────────────────────────────────
+# WEB_CONCURRENCY is set by Render based on available CPUs; default 1 on free tier.
 poetry run uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
