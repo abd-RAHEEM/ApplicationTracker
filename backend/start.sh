@@ -21,6 +21,8 @@ poetry run celery -A app.worker.celery_app worker \
     --concurrency=2 \
     --max-tasks-per-child=50 &
 
+echo "==> Celery worker launched in background"
+
 # ── Database Migrations ───────────────────────────────────────────────────────
 echo "==> Running Alembic migrations..."
 poetry run alembic -c alembic.ini upgrade head || echo "==> WARNING: Alembic migrations failed!"

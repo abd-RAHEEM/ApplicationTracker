@@ -46,5 +46,5 @@ RUN python -m spacy download en_core_web_sm
 # Copy application code
 COPY . .
 
-# Run Alembic migrations and start Uvicorn
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Run start.sh script to boot Celery and FastAPI
+CMD ["bash", "start.sh"]

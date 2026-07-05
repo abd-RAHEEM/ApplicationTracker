@@ -49,7 +49,7 @@ services:
   celery_worker:
     build:
       context: ./backend
-    command: celery -A app.worker.celery_app worker --loglevel=info
+    command: celery -A app.worker.celery_app worker --loglevel=info -B --concurrency=2 --max-tasks-per-child=50
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-jobtracker}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-jobtracker_db}
       - REDIS_URL=redis://redis:6379/0
