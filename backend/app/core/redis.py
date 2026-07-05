@@ -48,7 +48,7 @@ class ResilientRedis:
         if callable(attr):
             def wrapper(*args, **kwargs):
                 res = attr(*args, **kwargs)
-                if inspect.iscoroutine(res):
+                if inspect.isawaitable(res):
                     async def execute_with_retry():
                         current_res = res
                         retries = 3
@@ -56,7 +56,7 @@ class ResilientRedis:
                         for attempt in range(retries):
                             try:
                                 return await current_res
-                            except (ConnectionError, TimeoutError) as e:
+                            except (ConnectionError, TimeoutError, OSError) as e:
                                 import logging
                                 logging.getLogger("app.redis").warning(
                                     f"ResilientRedis connection failed (attempt {attempt+1}/{retries}): {e}",
