@@ -7,6 +7,7 @@ os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@lo
 os.environ.setdefault("DATABASE_URL_SYNC", "postgresql+psycopg://postgres:postgres@localhost:5432/postgres")
 os.environ.setdefault("JWT_SECRET_KEY", "dummy_secret_key_at_least_32_characters_long")
 os.environ.setdefault("ENCRYPTION_KEY", "dummy_encryption_key_at_least_32_bytes_long_in_base64_format=")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker

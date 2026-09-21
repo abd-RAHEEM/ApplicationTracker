@@ -46,20 +46,22 @@ export const useAuthStore = create<AuthState>()(
 
       setLoading: (isLoading) => set({ isLoading }),
 
-      clearAuth: () =>
+      clearAuth: () => {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("auth-store");
+        }
         set({
           user: null,
           isAuthenticated: false,
           isLoading: false,
           lastValidatedAt: null,
-        }),
+        });
+      },
     }),
     {
       name: "auth-store",
-      storage: createJSONStorage(() => localStorage), // localStorage: persists across browser restarts
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        user: state.user,
-        isAuthenticated: state.user !== null,
         lastValidatedAt: state.lastValidatedAt,
       }),
     }

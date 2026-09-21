@@ -23,6 +23,7 @@ from app.core.rate_limiter import (
     PASSWORD_RESET_RATE_LIMIT,
     REFRESH_RATE_LIMIT,
     REGISTER_RATE_LIMIT,
+    get_client_ip,
     limiter,
 )
 from app.db.session import get_async_session
@@ -103,8 +104,9 @@ def clear_auth_cookies(response: Response) -> None:
 
 
 def _get_client_ip(request: Request) -> str | None:
-    """Extract real client IP using request.client.host directly to prevent X-Forwarded-For spoofing."""
-    return request.client.host if request.client else None
+    """Extract real client IP consistently with proxy-aware rate limiter."""
+    ip = get_client_ip(request)
+    return ip if ip != "unknown" else (request.client.host if request.client else None)
 
 
 # ── POST /auth/register ────────────────────────────────────────────────────────

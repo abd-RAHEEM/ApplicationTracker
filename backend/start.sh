@@ -8,26 +8,23 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 echo "==> Starting from directory: $(pwd)"
 
-# ── Celery Worker ─────────────────────────────────────────────────────────────
-# Concurrency is capped at 2 to stay within the 512 MB Render free-tier RAM.
-# Each prefork worker is a separate process; too many workers = OOM.
-# -B runs celery-beat (scheduler) inside the same process to save one more
-# process slot.
-# --max-tasks-per-child prevents long-running worker processes from leaking
-# memory over time.
-poetry run celery -A app.worker.celery_app worker \
-    --loglevel=info \
-    -B \
-    --concurrency=2 \
-    --max-tasks-per-child=50 &
-
-echo "==> Celery worker launched in background"
-
 # ── Database Migrations ───────────────────────────────────────────────────────
 echo "==> Running Alembic migrations..."
-poetry run alembic -c alembic.ini upgrade head || echo "==> WARNING: Alembic migrations failed!"
+poetry run alembic -c alembic.ini upgrade head
 echo "==> Migrations complete."
 
+# ── Optional Inline Celery Worker ─────────────────────────────────────────────
+# Concurrency is capped at 1 to prevent OOM on 512 MB Render containers.
+# If a separate Render Background Worker is configured, set RUN_INLINE_CELERY=false.
+if [ "${RUN_INLINE_CELERY:-true}" = "true" ]; then
+    echo "==> Launching inline Celery worker (concurrency=1)..."
+    poetry run celery -A app.worker.celery_app worker \
+        --loglevel=info \
+        -B \
+        --concurrency=1 \
+        --max-tasks-per-child=20 &
+    echo "==> Inline Celery worker launched in background"
+fi
+
 # ── FastAPI Server ────────────────────────────────────────────────────────────
-# WEB_CONCURRENCY is set by Render based on available CPUs; default 1 on free tier.
-poetry run uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+exec poetry run uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"

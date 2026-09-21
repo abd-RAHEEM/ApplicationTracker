@@ -30,45 +30,34 @@ from slowapi.util import get_remote_address
 from app.config import settings
 
 
-def _get_key(request) -> str:  # type: ignore[no-untyped-def]
+def get_client_ip(request) -> str:  # type: ignore[no-untyped-def]
     """
-    Rate limit key function — resolves the real client IP.
+    Proxy-aware client IP resolution.
 
     Priority:
-    1. X-Forwarded-For leftmost entry (set by load balancer / CDN)
-    2. X-Real-IP header (Nginx convention)
+    1. X-Forwarded-For leftmost entry (set by load balancer / reverse proxy)
+    2. X-Real-IP header (Nginx / proxy convention)
     3. request.client.host (direct connection)
     """
-    import structlog
-    dbg_logger = structlog.get_logger("app.rate_limiter")
-
     forwarded_for = request.headers.get("x-forwarded-for")
     real_ip = request.headers.get("x-real-ip")
     client_host = request.client.host if request.client else None
 
-    resolved_ip: str | None = None
     if forwarded_for:
-        # X-Forwarded-For can be a comma-separated list: "client, proxy1, proxy2"
-        # The leftmost entry is the original client IP as set by the outermost proxy.
-        resolved_ip = forwarded_for.split(",")[0].strip()
-    elif real_ip:
-        resolved_ip = real_ip.strip()
-    else:
-        resolved_ip = client_host
-
-    dbg_logger.debug(
-        "rate_limit_key_resolved",
-        path=request.url.path,
-        x_forwarded_for=forwarded_for,
-        x_real_ip=real_ip,
-        client_host=client_host,
-        resolved_ip=resolved_ip,
-    )
-    return resolved_ip or "unknown"
+        return forwarded_for.split(",")[0].strip()
+    if real_ip:
+        return real_ip.strip()
+    return client_host or "unknown"
 
 
-# Shared limiter instance — imported by route modules
-limiter = Limiter(key_func=_get_key)
+def _get_key(request) -> str:  # type: ignore[no-untyped-def]
+    """Rate limit key function using resolved client IP."""
+    return get_client_ip(request)
+
+
+# Shared limiter instance — Redis-backed in production, in-memory in dev/testing
+storage_uri = settings.redis_url if settings.is_production else "memory://"
+limiter = Limiter(key_func=_get_key, storage_uri=storage_uri)
 
 # Export the SlowAPI error handler for registration in main.py
 rate_limit_exceeded_handler = _rate_limit_exceeded_handler
