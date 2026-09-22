@@ -131,6 +131,7 @@ async def run_sync_for_user(user_id: UUID, task_id: str | None = None) -> None:
                     
                     # Update progress in db and redis
                     await sync_log_repository.increment_progress(session, log_id, upserted)
+                    await session.commit()
                     await publish_sse_event(str(user_id), json.dumps({
                         "event": "page_processed",
                         "emails_processed": total_fetched
@@ -149,9 +150,9 @@ async def run_sync_for_user(user_id: UUID, task_id: str | None = None) -> None:
                     .where(GmailConnection.user_id == user_id)
                     .values(initial_import_done=True)
                 )
-                await session.flush()
 
             await sync_log_repository.finish_sync(session, log_id, SyncStatus.COMPLETED, total_fetched)
+            await session.commit()
             await publish_sse_event(str(user_id), json.dumps({
                 "event": "sync_completed",
                 "emails_processed": total_fetched
@@ -170,8 +171,12 @@ async def run_sync_for_user(user_id: UUID, task_id: str | None = None) -> None:
 
         except Exception as e:
             logger.exception("sync_failed", user_id=str(user_id))
-            await session.rollback() # rollback any pending uncommitted bulk upserts in this session
-            await sync_log_repository.finish_sync(session, log_id, SyncStatus.FAILED, error_message=str(e))
+            await session.rollback()
+            try:
+                await sync_log_repository.finish_sync(session, log_id, SyncStatus.FAILED, error_message=str(e))
+                await session.commit()
+            except Exception:
+                pass
             await publish_sse_event(str(user_id), json.dumps({
                 "event": "sync_failed",
                 "error": str(e)

@@ -35,18 +35,29 @@ def get_client_ip(request) -> str:  # type: ignore[no-untyped-def]
     Proxy-aware client IP resolution.
 
     Priority:
-    1. X-Forwarded-For leftmost entry (set by load balancer / reverse proxy)
-    2. X-Real-IP header (Nginx / proxy convention)
-    3. request.client.host (direct connection)
+    1. CF-Connecting-IP (Cloudflare)
+    2. True-Client-IP (Akamai / generic CDN)
+    3. X-Forwarded-For leftmost entry (set by reverse proxy / load balancer)
+    4. X-Real-IP header (Nginx / proxy convention)
+    5. request.client.host (direct connection)
     """
-    forwarded_for = request.headers.get("x-forwarded-for")
-    real_ip = request.headers.get("x-real-ip")
-    client_host = request.client.host if request.client else None
+    cf_ip = request.headers.get("cf-connecting-ip")
+    if cf_ip:
+        return cf_ip.strip()
 
+    true_client_ip = request.headers.get("true-client-ip")
+    if true_client_ip:
+        return true_client_ip.strip()
+
+    forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
+
+    real_ip = request.headers.get("x-real-ip")
     if real_ip:
         return real_ip.strip()
+
+    client_host = request.client.host if request.client else None
     return client_host or "unknown"
 
 

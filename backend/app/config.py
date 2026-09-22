@@ -108,11 +108,11 @@ class Settings(BaseSettings):
     #    share the same resolved IP — too-low limits block legitimate logins.
     # 2. bcrypt (cost 12, ~300 ms/hash) is the real brute-force throttle.
     # Override per-env via RATE_LIMIT_LOGIN, RATE_LIMIT_REGISTER, etc. env vars.
-    rate_limit_login: str = "100/minute"
-    rate_limit_register: str = "30/minute"
-    rate_limit_password_reset: str = "10/minute"
-    rate_limit_sync: str = "20/minute"
-    rate_limit_refresh: str = "120/minute"  # Refresh is silent/automatic, needs headroom
+    rate_limit_login: str = "300/minute"
+    rate_limit_register: str = "60/minute"
+    rate_limit_password_reset: str = "30/minute"
+    rate_limit_sync: str = "60/minute"
+    rate_limit_refresh: str = "300/minute"  # Refresh is silent/automatic, needs headroom
 
     # ── Password Reset ─────────────────────────────────────────────────────────
     password_reset_token_expire_minutes: int = Field(default=15, ge=5, le=60)

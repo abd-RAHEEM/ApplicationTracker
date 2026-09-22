@@ -219,4 +219,9 @@ async def complete_onboarding(
         import_range=payload.import_range,
         import_from=payload.import_from,
     )
-    return {"status": "success", "message": "Onboarding complete."}
+    
+    # Automatically queue initial sync for the historical window configured by the user
+    from app.worker.tasks import run_incremental_sync
+    run_incremental_sync.delay(str(user.id))
+
+    return {"status": "success", "message": "Onboarding complete. Initial sync queued."}
