@@ -125,10 +125,22 @@ apiClient.interceptors.response.use(
   }
 );
 
-// ── Typed API helper ───────────────────────────────────────────────────────────
+// ── Typed API helpers ──────────────────────────────────────────────────────────
+function extractData<T>(responseData: any): T {
+  if (
+    responseData &&
+    typeof responseData === "object" &&
+    "data" in responseData &&
+    responseData.data !== undefined
+  ) {
+    return responseData.data as T;
+  }
+  return responseData as T;
+}
+
 export async function apiGet<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-  const response = await apiClient.get<{ data: T }>(url, config);
-  return response.data.data;
+  const response = await apiClient.get<any>(url, config);
+  return extractData<T>(response.data);
 }
 
 export async function apiPost<T = unknown>(
@@ -136,27 +148,25 @@ export async function apiPost<T = unknown>(
   data?: unknown,
   config?: AxiosRequestConfig
 ): Promise<T> {
-  const response = await apiClient.post<{ data: T }>(url, data, config);
-  return response.data.data;
+  const response = await apiClient.post<any>(url, data, config);
+  return extractData<T>(response.data);
 }
-
-
 
 export async function apiPatch<T>(
   url: string,
   data?: unknown,
   config?: AxiosRequestConfig
 ): Promise<T> {
-  const response = await apiClient.patch<{ data: T }>(url, data, config);
-  return response.data.data;
+  const response = await apiClient.patch<any>(url, data, config);
+  return extractData<T>(response.data);
 }
 
 export async function apiDelete<T>(
   url: string,
   config?: AxiosRequestConfig
 ): Promise<T> {
-  const response = await apiClient.delete<{ data: T }>(url, config);
-  return response.data.data;
+  const response = await apiClient.delete<any>(url, config);
+  return extractData<T>(response.data);
 }
 
 // ── API Error Helper ───────────────────────────────────────────────────────────
